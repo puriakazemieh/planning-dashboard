@@ -24,6 +24,7 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
+var isRecord = (value) => typeof value === "object" && value !== null;
 var D = { tasks: [], migrated: false, routineSchedules: {}, routineBars: {}, areaDescriptions: {}, areaDisplayModes: {}, tick: { enabled: false, token: "", auto: false, minutes: 30 } };
 var R = ["\u0632\u0628\u0627\u0646 \u0622\u0644\u0645\u0627\u0646\u06CC", "\u06A9\u0627\u062A\u0644\u06CC\u0646 \u0648 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F", "\u0628\u0647\u0628\u0648\u062F \u0641\u0631\u062F\u06CC"];
 var F = "\u0641\u06CC\u0646\u200C\u062A\u0631\u06A9 \u0648 \u0634\u0627\u067E";
@@ -44,21 +45,21 @@ var Planning = class extends import_obsidian.Plugin {
     this.schedule();
   }
   onunload() {
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer) window.clearInterval(this.timer);
   }
   async save() {
     await this.saveData(this.settings);
     this.schedule();
   }
   schedule() {
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer) window.clearInterval(this.timer);
     if (this.settings.tick.enabled && this.settings.tick.token && this.settings.tick.auto) this.timer = window.setInterval(() => void this.sync(false), Math.max(5, this.settings.tick.minutes) * 6e4);
   }
   async migrate() {
     if (this.settings.migrated) return;
     try {
-      const a = JSON.parse(await this.app.vault.adapter.read(".obsidian/plugins/ticktick-bridge/data.json"));
-      if (Array.isArray(a.projectTaskCatalog)) this.settings.tasks = a.projectTaskCatalog.map((t) => ({ id: String(t.id ?? crypto.randomUUID()), area: String(t.area ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647"), title: String(t.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), start: String(t.start ?? ""), due: String(t.due ?? ""), status: String(t.status ?? "todo"), description: String(t.description ?? ""), tickId: String(t.id ?? ""), projectId: String(t.ticktickProjectId ?? "") }));
+      const path = `${this.app.vault.configDir}/plugins/ticktick-bridge/data.json`, raw = JSON.parse(await this.app.vault.adapter.read(path));
+      if (isRecord(raw) && Array.isArray(raw.projectTaskCatalog)) this.settings.tasks = raw.projectTaskCatalog.filter(isRecord).map((t) => ({ id: String(t.id ?? crypto.randomUUID()), area: String(t.area ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647"), title: String(t.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), start: String(t.start ?? ""), due: String(t.due ?? ""), status: String(t.status ?? "todo"), description: String(t.description ?? ""), tickId: String(t.id ?? ""), projectId: String(t.ticktickProjectId ?? "") }));
     } catch {
     }
     this.settings.migrated = true;
@@ -205,7 +206,7 @@ var Planning = class extends import_obsidian.Plugin {
       const cal = b.createDiv({ cls: "planning-calendar" }), lanes = cal.createDiv({ cls: "planning-lanes" }), n = diff(s, d) + 1, mo = cal.createDiv({ cls: "planning-months" });
       for (const m of months(s, d)) {
         const z = mo.createDiv({ cls: "planning-month", text: m.l });
-        z.style.flex = String(m.n);
+        z.setCssProps({ flex: String(m.n) });
       }
       cal.insertBefore(mo, lanes);
       for (const a of allAreas) {
@@ -215,7 +216,7 @@ var Planning = class extends import_obsidian.Plugin {
         if (mode !== "tasks") for (const routine of routineBars(a).filter((bar) => bar.start <= d && bar.due >= s)) {
           const line = lane.createDiv({ cls: "planning-routine-line" });
           pos(line, s, routine.start, routine.due, n);
-          line.style.setProperty("--planning-color", color(a));
+          line.setCssProps({ "--planning-color": color(a) });
           line.setAttribute("title", routine.title || a);
           line.onclick = () => void this.editRoutine(a, () => this.overview(e), routine.id);
           const first = line.createDiv({ cls: "planning-line-handle planning-line-start" }), last = line.createDiv({ cls: "planning-line-handle planning-line-end" });
@@ -226,7 +227,7 @@ var Planning = class extends import_obsidian.Plugin {
           const bar = lane.createDiv({ cls: "planning-task-bar" });
           bar.createSpan({ text: task.title });
           pos(bar, s, task.start, task.due, n);
-          bar.style.setProperty("--planning-color", color(task.area));
+          bar.setCssProps({ "--planning-color": color(task.area) });
           bar.onclick = () => this.edit(task, () => this.overview(e));
           const first = bar.createDiv({ cls: "planning-line-handle planning-line-start" }), last = bar.createDiv({ cls: "planning-line-handle planning-line-end" });
           this.dragTask(bar, lane, first, task, s, d, () => this.overview(e));
@@ -292,9 +293,19 @@ var Planning = class extends import_obsidian.Plugin {
     return x.json;
   }
   async pick() {
-    const ps = await this.req("project");
-    const ds = await Promise.all(ps.map((p) => this.req(`project/${p.id}/data`)));
-    return ds.flatMap((d, i) => d.tasks.map((t) => ({ id: String(t.id), projectId: String(t.projectId || ps[i].id), projectName: String(ps[i].name || "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"), title: String(t.title), start: key(t.startDate) || key(t.dueDate), due: key(t.dueDate) || key(t.startDate), status: t.status === 2 ? "done" : "todo", description: String(t.desc || t.content || "") })));
+    const rawProjects = await this.req("project");
+    if (!Array.isArray(rawProjects)) return [];
+    const projects = rawProjects.filter(isRecord).map((project) => ({ id: String(project.id ?? ""), name: String(project.name ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647") })).filter((project) => project.id);
+    const rawData = await Promise.all(projects.map((project) => this.req(`project/${project.id}/data`)));
+    return rawData.flatMap((data, index) => {
+      if (!isRecord(data)) return [];
+      const tasks = data.tasks;
+      if (!Array.isArray(tasks)) return [];
+      return tasks.filter(isRecord).map((task) => {
+        const value = task;
+        return { id: String(value.id ?? crypto.randomUUID()), projectId: String(value.projectId ?? projects[index].id), projectName: projects[index].name, title: String(value.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), start: key(value.startDate) || key(value.dueDate), due: key(value.dueDate) || key(value.startDate), status: value.status === 2 ? "done" : "todo", description: String(value.desc ?? value.content ?? "") };
+      });
+    });
   }
   async sync(n) {
     try {
@@ -318,7 +329,7 @@ var Tab = class extends import_obsidian.PluginSettingTab {
   display() {
     const c = this.containerEl;
     c.empty();
-    c.createEl("h2", { text: "Planning Dashboard" });
+    new import_obsidian.Setting(c).setName("Planning Dashboard").setHeading();
     new import_obsidian.Setting(c).setName("\u0627\u062A\u0635\u0627\u0644 TickTick").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0633\u06A9 \u0648 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC").addToggle((x) => x.setValue(this.p.settings.tick.enabled).onChange(async (v) => {
       this.p.settings.tick.enabled = v;
       await this.p.save();
@@ -360,10 +371,6 @@ var AreaModal = class extends import_obsidian.Modal {
       const ta = this.contentEl.createEl("textarea", { cls: "planning-description-edit" });
       ta.value = this.p.settings.areaDescriptions[this.area] || "";
       ta.rows = 12;
-      ta.style.width = "100%";
-      ta.style.resize = "vertical";
-      ta.style.fontFamily = "inherit";
-      ta.style.padding = "10px";
       const container = this.contentEl.createDiv({ cls: "modal-button-container" });
       container.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).onclick = () => {
         this.isEditing = false;
@@ -378,7 +385,7 @@ var AreaModal = class extends import_obsidian.Modal {
       };
     } else {
       const x = this.contentEl.createDiv({ cls: "planning-description" });
-      await import_obsidian.MarkdownRenderer.renderMarkdown(this.p.settings.areaDescriptions[this.area] || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", x, "", this.p);
+      await import_obsidian.MarkdownRenderer.render(this.app, this.p.settings.areaDescriptions[this.area] || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", x, "", this.p);
       new import_obsidian.Setting(this.contentEl).setName("\u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647\u0654 \u0641\u0635\u0644\u06CC").setDesc("\u0645\u0634\u062E\u0635 \u0645\u06CC\u200C\u06A9\u0646\u062F \u0646\u0648\u0627\u0631 \u0647\u062F\u0641\u060C \u062A\u0633\u06A9\u200C\u0647\u0627 \u06CC\u0627 \u0647\u0631 \u062F\u0648 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0648\u0632\u0647 \u0646\u0634\u0627\u0646 \u062F\u0627\u062F\u0647 \u0634\u0648\u0646\u062F.").addDropdown((dropdown) => {
         dropdown.addOption("routine", "\u0641\u0642\u0637 \u0646\u0648\u0627\u0631");
         dropdown.addOption("tasks", "\u0641\u0642\u0637 \u062A\u0633\u06A9\u200C\u0647\u0627");
@@ -624,8 +631,7 @@ var diff = (a, b) => Math.round((Date.parse(b + "T12:00Z") - Date.parse(a + "T12
 var shift = (a, n) => new Date(Date.parse(a + "T12:00Z") + n * 864e5).toISOString().slice(0, 10);
 var pos = (e, s, a, b, n) => {
   const o = Math.max(0, diff(s, a)), d = Math.min(n - o, Math.max(1, diff(a, b) + 1));
-  e.style.right = `${o / n * 100}%`;
-  e.style.width = `${Math.max(1.2, d / n * 100)}%`;
+  e.setCssProps({ right: `${o / n * 100}%`, width: `${Math.max(1.2, d / n * 100)}%` });
 };
 var fmt = (x) => date(x) ? new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "numeric", day: "numeric" }).format(/* @__PURE__ */ new Date(x + "T12:00")) : "\u2014";
 var areas = (x, routineAreas = []) => {
