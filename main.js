@@ -25,7 +25,7 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 var isRecord = (value) => typeof value === "object" && value !== null;
-var D = { tasks: [], migrated: false, routineSchedules: {}, routineBars: {}, areaDescriptions: {}, areaDisplayModes: {}, tick: { enabled: false, token: "", auto: false, minutes: 30 } };
+var D = { tasks: [], migrated: false, routineSchedules: {}, routineBars: {}, areaDescriptions: {}, areaDisplayModes: {}, deletedAreas: [], tick: { enabled: false, token: "", auto: false, minutes: 30 } };
 var R = ["\u0632\u0628\u0627\u0646 \u0622\u0644\u0645\u0627\u0646\u06CC", "\u06A9\u0627\u062A\u0644\u06CC\u0646 \u0648 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F", "\u0628\u0647\u0628\u0648\u062F \u0641\u0631\u062F\u06CC"];
 var F = "\u0641\u06CC\u0646\u200C\u062A\u0631\u06A9 \u0648 \u0634\u0627\u067E";
 var S = [["spring", "\u0628\u0647\u0627\u0631 \u06F1\u06F4\u06F0\u06F5", "2026-03-21", "2026-06-21"], ["summer", "\u062A\u0627\u0628\u0633\u062A\u0627\u0646 \u06F1\u06F4\u06F0\u06F5", "2026-06-22", "2026-09-22"], ["autumn", "\u067E\u0627\u06CC\u06CC\u0632 \u06F1\u06F4\u06F0\u06F5", "2026-09-23", "2026-12-21"], ["winter", "\u0632\u0645\u0633\u062A\u0627\u0646 \u06F1\u06F4\u06F0\u06F5", "2026-12-22", "2027-03-20"]];
@@ -34,7 +34,7 @@ var Planning = class extends import_obsidian.Plugin {
   timer = null;
   async onload() {
     const x = await this.loadData();
-    this.settings = { ...D, ...x, routineSchedules: { ...D.routineSchedules, ...x?.routineSchedules }, routineBars: { ...D.routineBars, ...x?.routineBars }, areaDescriptions: { ...D.areaDescriptions, ...x?.areaDescriptions }, areaDisplayModes: { ...D.areaDisplayModes, ...x?.areaDisplayModes }, tick: { ...D.tick, ...x?.tick } };
+    this.settings = { ...D, ...x, routineSchedules: { ...D.routineSchedules, ...x?.routineSchedules }, routineBars: { ...D.routineBars, ...x?.routineBars }, areaDescriptions: { ...D.areaDescriptions, ...x?.areaDescriptions }, areaDisplayModes: { ...D.areaDisplayModes, ...x?.areaDisplayModes }, deletedAreas: Array.isArray(x?.deletedAreas) ? x.deletedAreas : [], tick: { ...D.tick, ...x?.tick } };
     await this.migrateRoutineBars();
     await this.migrate();
     this.addSettingTab(new Tab(this.app, this));
@@ -78,7 +78,7 @@ var Planning = class extends import_obsidian.Plugin {
     if (changed) await this.saveData(this.settings);
   }
   areaNames() {
-    return areas(this.tasks(), [...Object.keys(this.settings.routineSchedules), ...Object.keys(this.settings.routineBars)]);
+    return areas(this.tasks(), [...Object.keys(this.settings.routineSchedules), ...Object.keys(this.settings.routineBars)]).filter((area) => !this.settings.deletedAreas.includes(area));
   }
   areaDisplayMode(area) {
     return this.settings.areaDisplayModes[area] ?? (area === "\u06A9\u0627\u062A\u0644\u06CC\u0646 \u0648 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F" || area === "\u0628\u0647\u0628\u0648\u062F \u0641\u0631\u062F\u06CC" ? "routine" : "tasks");
@@ -264,6 +264,7 @@ var Planning = class extends import_obsidian.Plugin {
   async edit(t, r) {
     const v = await new Editor(this.app, this, t, t ? () => this.del(t, r) : void 0).wait();
     if (!v) return;
+    this.settings.deletedAreas = this.settings.deletedAreas.filter((area) => area !== v.area);
     t ? Object.assign(t, v) : this.settings.tasks.push({ ...v, id: crypto.randomUUID() });
     await this.save();
     r();
@@ -271,6 +272,7 @@ var Planning = class extends import_obsidian.Plugin {
   async editRoutine(area, r, barId) {
     const v = await new RoutineEditor(this.app, this, area, barId, r).wait();
     if (!v) return;
+    this.settings.deletedAreas = this.settings.deletedAreas.filter((area2) => area2 !== v.area);
     const existingArea = Object.keys(this.settings.routineBars).find((key2) => this.settings.routineBars[key2].some((bar) => bar.id === v.id));
     if (existingArea && existingArea !== v.area) this.settings.routineBars[existingArea] = this.settings.routineBars[existingArea].filter((bar) => bar.id !== v.id);
     const bars = this.settings.routineBars[v.area] ??= [];
@@ -412,7 +414,9 @@ var AreaModal = class extends import_obsidian.Modal {
         this.p.settings.tasks = this.p.settings.tasks.filter((t) => t.area !== this.area);
         delete this.p.settings.areaDescriptions[this.area];
         delete this.p.settings.routineSchedules[this.area];
+        delete this.p.settings.routineBars[this.area];
         delete this.p.settings.areaDisplayModes[this.area];
+        if (!this.p.settings.deletedAreas.includes(this.area)) this.p.settings.deletedAreas.push(this.area);
         await this.p.save();
         this.close();
         this.r();
