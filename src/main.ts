@@ -1,4 +1,4 @@
-import { App, MarkdownRenderer, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl } from "obsidian";
+import { App, DropdownComponent, MarkdownRenderer, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl } from "obsidian";
 type Task={id:string;area:string;title:string;start:string;due:string;status:string;description?:string;tickId?:string;projectId?:string};
 type AreaDisplayMode="routine"|"tasks"|"both";
 type RoutineBar={id:string;title:string;start:string;due:string};
@@ -27,10 +27,701 @@ export default class Planning extends Plugin { settings:Settings=D; timer:number
 }
 class Tab extends PluginSettingTab{constructor(a:App,private p:Planning){super(a,p)}display(){const c=this.containerEl;c.empty();new Setting(c).setName("Planning Dashboard").setHeading();new Setting(c).setName("اتصال TickTick").setDesc("برای انتخاب تسک و همگام‌سازی زمان‌بندی").addToggle(x=>x.setValue(this.p.settings.tick.enabled).onChange(async v=>{this.p.settings.tick.enabled=v;await this.p.save();this.display()}));new Setting(c).setName("API Token").addText(x=>{x.inputEl.type="password";x.setValue(this.p.settings.tick.token).onChange(async v=>{this.p.settings.tick.token=v.trim();await this.p.save()})});new Setting(c).setName("همگام‌سازی خودکار").addToggle(x=>x.setValue(this.p.settings.tick.auto).onChange(async v=>{this.p.settings.tick.auto=v;await this.p.save()}));new Setting(c).setName("فاصله (دقیقه)").addText(x=>x.setValue(String(this.p.settings.tick.minutes)).onChange(async v=>{this.p.settings.tick.minutes=Math.max(5,+v||30);await this.p.save()}));new Setting(c).setName("همگام‌سازی الآن").addButton(b=>b.setButtonText("همگام‌سازی").onClick(()=>void this.p.sync(true)))}}
 
-class AreaModal extends Modal{isEditing=false;constructor(a:App,private p:Planning,private area:string,private r:()=>void){super(a)}async onOpen(){this.renderContent()}async renderContent(){this.contentEl.empty();this.contentEl.createEl("h2",{text:this.area});if(this.isEditing){const ta=this.contentEl.createEl("textarea",{cls:"planning-description-edit"});ta.value=this.p.settings.areaDescriptions[this.area]||"";ta.rows=12;const container=this.contentEl.createDiv({cls:"modal-button-container"});container.createEl("button",{text:"انصراف"}).onclick=()=>{this.isEditing=false;this.renderContent()};container.createEl("button",{text:"ذخیره توضیحات",cls:"mod-cta"}).onclick=async()=>{this.p.settings.areaDescriptions[this.area]=ta.value;await this.p.save();this.r();this.isEditing=false;this.renderContent()}}else{const x=this.contentEl.createDiv({cls:"planning-description"});await MarkdownRenderer.render(this.app,this.p.settings.areaDescriptions[this.area]||"توضیحی ثبت نشده است.",x,"",this.p);new Setting(this.contentEl).setName("نمایش در نقشهٔ فصلی").setDesc("مشخص می‌کند نوار هدف، تسک‌ها یا هر دو برای این حوزه نشان داده شوند.").addDropdown(dropdown=>{dropdown.addOption("routine","فقط نوار");dropdown.addOption("tasks","فقط تسک‌ها");dropdown.addOption("both","هر دو");dropdown.setValue(this.p.areaDisplayMode(this.area));dropdown.onChange(async value=>{this.p.settings.areaDisplayModes[this.area]=value as AreaDisplayMode;await this.p.save();this.r()})});const container=this.contentEl.createDiv({cls:"modal-button-container"});container.createEl("button",{text:"بستن"}).onclick=()=>this.close();container.createEl("button",{text:"ویرایش متن"}).onclick=()=>{this.isEditing=true;this.renderContent()};container.createEl("button",{text:this.p.settings.routineSchedules[this.area]?"ویرایش نوار":"افزودن نوار"}).onclick=()=>void this.p.editRoutine(this.area,()=>{this.r();this.close()});container.createEl("button",{text:"حذف پروژه",cls:"mod-warning"}).onclick=async()=>{if(!confirm(`آیا از حذف کامل پروژه «${this.area}» و تمام تسک‌های آن مطمئن هستید؟`))return;this.p.settings.tasks=this.p.settings.tasks.filter(t=>t.area!==this.area);delete this.p.settings.areaDescriptions[this.area];delete this.p.settings.routineSchedules[this.area];delete this.p.settings.routineBars[this.area];delete this.p.settings.areaDisplayModes[this.area];if(!this.p.settings.deletedAreas.includes(this.area))this.p.settings.deletedAreas.push(this.area);await this.p.save();this.close();this.r()}}}}
-class Editor extends Modal{done!:(v:Omit<Task,"id">|null)=>void;res=new Promise<Omit<Task,"id">|null>(r=>this.done=r);end=false;constructor(a:App,private p:Planning,private init:Task|null,private onDelete?:()=>void){super(a)}finish(v:Omit<Task,"id">|null){if(!this.end){this.end=true;this.done(v);this.close()}}onOpen(){let z:Omit<Task,"id">={area:this.init?.area||F,title:this.init?.title||"",start:this.init?.start||"",due:this.init?.due||"",status:this.init?.status||"todo",description:this.init?.description||"",tickId:this.init?.tickId,projectId:this.init?.projectId},custom="";this.contentEl.createEl("h2",{text:this.init?"ویرایش فاز":"افزودن فاز"});let ti:HTMLInputElement,si:HTMLInputElement,di:HTMLInputElement,ta:HTMLTextAreaElement;new Setting(this.contentEl).setName("عنوان").addText(i=>{ti=i.inputEl;i.setValue(z.title).onChange(v=>z.title=v)});new Setting(this.contentEl).setName("حوزه").addDropdown(i=>{const as=this.p.areaNames();as.forEach(a=>i.addOption(a,a));i.addOption("__new__","＋ حوزهٔ جدید");i.setValue(as.includes(z.area)?z.area:"__new__");i.onChange(v=>{if(v!=="__new__")z.area=v;else z.area=custom})});new Setting(this.contentEl).setName("نام حوزهٔ جدید").setDesc("برای ساخت حوزهٔ جدید، نام آن را اینجا وارد کن.").addText(i=>i.onChange(v=>{custom=v.trim();if(custom)z.area=custom}));new Setting(this.contentEl).setName("شروع").addText(i=>{si=i.inputEl;i.inputEl.type="date";i.setValue(z.start).onChange(v=>z.start=v)});new Setting(this.contentEl).setName("پایان").addText(i=>{di=i.inputEl;i.inputEl.type="date";i.setValue(z.due).onChange(v=>z.due=v)});new Setting(this.contentEl).setName("توضیحات").addTextArea(i=>{ta=i.inputEl;i.inputEl.rows=6;i.setValue(z.description||"").onChange(v=>z.description=v)});new Setting(this.contentEl).setName("انتخاب از TickTick").addButton(b=>b.setButtonText("انتخاب تسک").onClick(async()=>{const x=await new Picker(this.app,this.p).wait();if(x){z={...z,...x,area:z.area,tickId:x.id};ti.value=z.title;si.value=z.start;di.value=z.due;ta.value=z.description||""}}));const a=this.contentEl.createDiv({cls:"modal-button-container"});a.createEl("button",{text:"انصراف"}).onclick=()=>this.finish(null);if(this.init&&this.onDelete)a.createEl("button",{text:"حذف",cls:"mod-warning"}).onclick=()=>{this.end=true;this.done(null);this.close();this.onDelete?.()};a.createEl("button",{text:"ذخیره",cls:"mod-cta"}).onclick=()=>{if(!z.title||!z.area||!date(z.start)||!date(z.due)||z.due<z.start)return new Notice("عنوان، حوزه و تاریخ معتبر وارد کن.");this.finish(z)}}onClose(){this.contentEl.empty();if(!this.end)this.finish(null)}wait(){this.open();return this.res}}
-class RoutineEditor extends Modal{done!:(v:(RoutineBar&{area:string})|null)=>void;res=new Promise<(RoutineBar&{area:string})|null>(r=>this.done=r);end=false;constructor(a:App,private p:Planning,private initialArea:string|null,private barId?:string,private refresh?:()=>void){super(a)}finish(v:(RoutineBar&{area:string})|null){if(!this.end){this.end=true;this.done(v);this.close()}}onOpen(){const original=this.initialArea&&this.barId?this.p.settings.routineBars[this.initialArea]?.find(bar=>bar.id===this.barId):undefined;let selected=this.initialArea||R[0],custom="",title=original?.title||"",start=original?.start||"",due=original?.due||"";this.contentEl.createEl("h2",{text:original?"ویرایش نوار حوزه":"افزودن نوار حوزه"});new Setting(this.contentEl).setName("حوزه").addDropdown(i=>{const names=this.p.areaNames();names.forEach(name=>i.addOption(name,name));i.addOption("__new__","＋ حوزهٔ جدید");i.setValue(names.includes(selected)?selected:"__new__");i.onChange(value=>{selected=value==="__new__"?custom:value})});new Setting(this.contentEl).setName("نام حوزهٔ جدید").setDesc("نوار برای این حوزه به همهٔ فصل‌ها اضافه می‌شود.").addText(i=>i.onChange(value=>{custom=value.trim();if(custom)selected=custom}));new Setting(this.contentEl).setName("عنوان نوار").setDesc("اختیاری؛ برای تشخیص نوارهای یک حوزه استفاده می‌شود.").addText(i=>i.setValue(title).onChange(value=>title=value.trim()));new Setting(this.contentEl).setName("شروع نوار").addText(i=>{i.inputEl.type="date";i.setValue(start).onChange(value=>start=value)});new Setting(this.contentEl).setName("پایان نوار").addText(i=>{i.inputEl.type="date";i.setValue(due).onChange(value=>due=value)});const actions=this.contentEl.createDiv({cls:"modal-button-container"});actions.createEl("button",{text:"انصراف"}).onclick=()=>this.finish(null);if(original)actions.createEl("button",{text:"حذف نوار",cls:"mod-warning"}).onclick=async()=>{this.p.settings.routineBars[this.initialArea!]=this.p.settings.routineBars[this.initialArea!].filter(bar=>bar.id!==original.id);await this.p.save();this.refresh?.();this.end=true;this.done(null);this.close()};actions.createEl("button",{text:"ذخیره",cls:"mod-cta"}).onclick=()=>{if(!selected||!date(start)||!date(due)||due<start)return new Notice("حوزه و بازهٔ زمانی معتبر وارد کن.");this.finish({id:original?.id||crypto.randomUUID(),area:selected,title,start,due})}}onClose(){this.contentEl.empty();if(!this.end)this.finish(null)}wait(){this.open();return this.res}}
-class Picker extends Modal{done!:(v:TickTickTaskSelection|null)=>void;res=new Promise<TickTickTaskSelection|null>(r=>this.done=r);end=false;constructor(a:App,private p:Planning){super(a)}finish(v:TickTickTaskSelection|null){if(!this.end){this.end=true;this.done(v);this.close()}}async onOpen(){this.contentEl.createEl("h2",{text:"انتخاب تسک TickTick"});this.contentEl.addClass("planning-picker-modal");try{const tasks=await this.p.pick();const byProject=tasks.reduce((acc,t)=>{const pName=t.projectName||"بدون پروژه";if(!acc[pName])acc[pName]=[];acc[pName].push(t);return acc},{} as Record<string,TickTickTaskSelection[]>);const container=this.contentEl.createDiv({cls:"planning-picker-container"});for(const [pName,pTasks]of Object.entries(byProject)){const group=container.createDiv({cls:"planning-picker-group"});group.createEl("h3",{text:pName,cls:"planning-picker-group-title"});const list=group.createDiv({cls:"planning-picker-list"});for(const t of pTasks){const btn=list.createEl("button",{cls:"planning-picker-item"});btn.createDiv({cls:"planning-picker-item-title",text:t.title});if(t.start||t.due)btn.createDiv({cls:"planning-picker-item-date",text:`${fmt(t.start)} — ${fmt(t.due)}`});btn.onclick=()=>this.finish(t)}}}catch(e){this.contentEl.createEl("p",{text:e instanceof Error?e.message:"خطا"})}}onClose(){this.contentEl.empty();if(!this.end)this.finish(null)}wait(){this.open();return this.res}}
-class Manager extends Modal{constructor(a:App,private p:Planning,private r:()=>void){super(a)}onOpen(){this.contentEl.createEl("h2",{text:"مدیریت فازها"});for(const t of this.p.tasks()){const x=this.contentEl.createDiv({cls:"planning-manager-row"});x.createSpan({text:`${t.area} — ${t.title}`});x.createEl("button",{text:"ویرایش"}).onclick=()=>void this.p.edit(t,this.r);x.createEl("button",{text:"حذف",cls:"mod-warning"}).onclick=()=>void this.p.del(t,this.r)}}}
+class AreaModal extends Modal {
+  constructor(a: App, private p: Planning, private area: string, private r: () => void) {
+    super(a);
+  }
+  async onOpen() {
+    this.modalEl.addClass("planning-modal", "planning-area-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+
+    let currentText = this.p.settings.areaDescriptions[this.area] || "";
+    let isEditing = false;
+
+    // Header
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    const titleWrap = header.createDiv({ cls: "planning-modal-title-wrap" });
+
+    const iconEl = titleWrap.createSpan({ cls: "planning-area-icon" });
+    iconEl.setText(icon(this.area));
+    iconEl.style.setProperty("--area-color", color(this.area));
+
+    titleWrap.createEl("h2", { text: this.area, cls: "planning-modal-title" });
+
+    const modeWrap = header.createDiv({ cls: "planning-area-mode-wrap" });
+    modeWrap.createEl("span", { text: "نمایش در نقشه:", cls: "planning-mode-label" });
+    const modeDropdown = new DropdownComponent(modeWrap);
+    modeDropdown.addOption("routine", "فقط نوار هدف");
+    modeDropdown.addOption("tasks", "فقط تسک‌ها");
+    modeDropdown.addOption("both", "هر دو (نوار + تسک)");
+    modeDropdown.setValue(this.p.areaDisplayMode(this.area));
+    modeDropdown.selectEl.addClass("planning-select", "planning-select-sm");
+    modeDropdown.onChange(async value => {
+      this.p.settings.areaDisplayModes[this.area] = value as AreaDisplayMode;
+      await this.p.save();
+      this.r();
+    });
+
+    // Body
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    const descSection = body.createDiv({ cls: "planning-desc-section" });
+    const descHeader = descSection.createDiv({ cls: "planning-desc-header" });
+    descHeader.createEl("span", { text: "یادداشت‌ها و راهنمای حوزه (Markdown)", cls: "planning-form-label" });
+
+    const tabsWrap = descHeader.createDiv({ cls: "planning-desc-tabs" });
+    const previewTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn is-active",
+      text: "👁️ مشاهده متن"
+    });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn",
+      text: "✏️ ویرایش متن"
+    });
+
+    const descContainer = descSection.createDiv({ cls: "planning-desc-container" });
+    const previewEl = descContainer.createDiv({ cls: "planning-desc-preview planning-area-view-card" });
+    const textareaEl = descContainer.createEl("textarea", {
+      cls: "planning-desc-textarea planning-area-textarea is-hidden",
+      placeholder: "یادداشت‌ها و راهنمای این حوزه را به زبان مارک‌داون وارد کنید..."
+    });
+    textareaEl.value = currentText;
+
+    const renderPreview = async () => {
+      previewEl.empty();
+      const textToRender = currentText.trim() || "*هنوز توضیحی برای این حوزه ثبت نشده است. برای افزودن راهنما و یادداشت‌ها، روی «ویرایش متن» در بالا کلیک کنید.*";
+      await MarkdownRenderer.render(this.app, textToRender, previewEl, "", this.p);
+    };
+    void renderPreview();
+
+    // Footer
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerLeft = footer.createDiv({ cls: "planning-footer-left" });
+    const delBtn = footerLeft.createEl("button", { cls: "planning-btn-danger", text: "🗑️ حذف پروژه" });
+    delBtn.onclick = async () => {
+      if (!confirm(`آیا از حذف کامل پروژه «${this.area}» و تمام تسک‌های آن مطمئن هستید؟`)) return;
+      this.p.settings.tasks = this.p.settings.tasks.filter(t => t.area !== this.area);
+      delete this.p.settings.areaDescriptions[this.area];
+      delete this.p.settings.routineSchedules[this.area];
+      delete this.p.settings.routineBars[this.area];
+      delete this.p.settings.areaDisplayModes[this.area];
+      if (!this.p.settings.deletedAreas.includes(this.area)) this.p.settings.deletedAreas.push(this.area);
+      await this.p.save();
+      this.close();
+      this.r();
+    };
+
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const hasBars = (this.p.settings.routineBars[this.area]?.length ?? 0) > 0 || !!this.p.settings.routineSchedules[this.area];
+    const routineBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: hasBars ? "📅 ویرایش نوار حوزه" : "+ افزودن نوار حوزه"
+    });
+    routineBtn.onclick = () => {
+      this.close();
+      void this.p.editRoutine(this.area, () => this.r());
+    };
+
+    const toggleEditBtn = footerRight.createEl("button", { cls: "planning-btn-secondary", text: "✏️ ویرایش متن" });
+    const cancelEditBtn = footerRight.createEl("button", { cls: "planning-btn-secondary is-hidden", text: "انصراف" });
+    const saveDescBtn = footerRight.createEl("button", { cls: "planning-btn-primary mod-cta is-hidden", text: "💾 ذخیره توضیحات" });
+    const closeBtn = footerRight.createEl("button", { cls: "planning-btn-primary mod-cta", text: "بستن" });
+    closeBtn.onclick = () => this.close();
+
+    const updateViewMode = (editing: boolean) => {
+      isEditing = editing;
+      if (editing) {
+        previewTabBtn.removeClass("is-active");
+        editTabBtn.addClass("is-active");
+        previewEl.addClass("is-hidden");
+        textareaEl.removeClass("is-hidden");
+        textareaEl.focus();
+
+        routineBtn.addClass("is-hidden");
+        toggleEditBtn.addClass("is-hidden");
+        closeBtn.addClass("is-hidden");
+        cancelEditBtn.removeClass("is-hidden");
+        saveDescBtn.removeClass("is-hidden");
+      } else {
+        editTabBtn.removeClass("is-active");
+        previewTabBtn.addClass("is-active");
+        textareaEl.addClass("is-hidden");
+        previewEl.removeClass("is-hidden");
+        void renderPreview();
+
+        routineBtn.removeClass("is-hidden");
+        toggleEditBtn.removeClass("is-hidden");
+        closeBtn.removeClass("is-hidden");
+        cancelEditBtn.addClass("is-hidden");
+        saveDescBtn.addClass("is-hidden");
+      }
+    };
+
+    previewTabBtn.onclick = (e) => {
+      e.preventDefault();
+      currentText = textareaEl.value;
+      updateViewMode(false);
+    };
+    editTabBtn.onclick = (e) => {
+      e.preventDefault();
+      updateViewMode(true);
+    };
+    toggleEditBtn.onclick = () => updateViewMode(true);
+    cancelEditBtn.onclick = () => {
+      textareaEl.value = this.p.settings.areaDescriptions[this.area] || "";
+      currentText = textareaEl.value;
+      updateViewMode(false);
+    };
+    saveDescBtn.onclick = async () => {
+      currentText = textareaEl.value;
+      this.p.settings.areaDescriptions[this.area] = currentText;
+      await this.p.save();
+      this.r();
+      new Notice("توضیحات با موفقیت ذخیره شد.");
+      updateViewMode(false);
+    };
+  }
+}
+
+class Editor extends Modal {
+  done!: (v: Omit<Task, "id"> | null) => void;
+  res = new Promise<Omit<Task, "id"> | null>(r => this.done = r);
+  end = false;
+
+  constructor(a: App, private p: Planning, private init: Task | null, private onDelete?: () => void) {
+    super(a);
+  }
+
+  finish(v: Omit<Task, "id"> | null) {
+    if (!this.end) {
+      this.end = true;
+      this.done(v);
+      this.close();
+    }
+  }
+
+  onOpen() {
+    this.modalEl.addClass("planning-modal", "planning-editor-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+
+    let z: Omit<Task, "id"> = {
+      area: this.init?.area || F,
+      title: this.init?.title || "",
+      start: this.init?.start || "",
+      due: this.init?.due || "",
+      status: this.init?.status || "todo",
+      description: this.init?.description || "",
+      tickId: this.init?.tickId,
+      projectId: this.init?.projectId
+    };
+    let customArea = "";
+
+    // Header
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    const headerTitleWrap = header.createDiv({ cls: "planning-modal-title-wrap" });
+    headerTitleWrap.createEl("h2", {
+      text: this.init ? "ویرایش فاز" : "افزودن فاز جدید",
+      cls: "planning-modal-title"
+    });
+    if (this.init) {
+      const badge = headerTitleWrap.createSpan({ cls: "planning-modal-badge" });
+      badge.setText(`${icon(z.area)} ${z.area}`);
+      badge.style.setProperty("--badge-color", color(z.area));
+    }
+
+    const tickBtn = header.createEl("button", {
+      cls: "planning-btn-secondary planning-tick-btn",
+      text: "🔄 انتخاب از TickTick"
+    });
+
+    // Body
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    const form = body.createDiv({ cls: "planning-form" });
+
+    // Title group
+    const titleGroup = form.createDiv({ cls: "planning-form-group" });
+    titleGroup.createEl("label", { text: "عنوان فاز یا تسک", cls: "planning-form-label" });
+    const titleInput = titleGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input planning-input-lg",
+      placeholder: "مثال: سطح ۷: زندگی به زبان آلمانی"
+    });
+    titleInput.value = z.title;
+    titleInput.oninput = () => { z.title = titleInput.value; };
+
+    // Area row
+    const areaRow = form.createDiv({ cls: "planning-form-row" });
+    const areaGroup = areaRow.createDiv({ cls: "planning-form-group" });
+    areaGroup.createEl("label", { text: "حوزهٔ پروژه", cls: "planning-form-label" });
+    const areaDropdown = new DropdownComponent(areaGroup);
+    const as = this.p.areaNames();
+    as.forEach(a => areaDropdown.addOption(a, a));
+    areaDropdown.addOption("__new__", "＋ ساخت حوزهٔ جدید");
+    areaDropdown.setValue(as.includes(z.area) ? z.area : "__new__");
+    areaDropdown.selectEl.addClass("planning-select");
+
+    const newAreaGroup = areaRow.createDiv({ cls: "planning-form-group planning-new-area-group" });
+    newAreaGroup.createEl("label", { text: "نام حوزهٔ جدید", cls: "planning-form-label" });
+    const newAreaInput = newAreaGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input",
+      placeholder: "نام حوزهٔ جدید را وارد کنید..."
+    });
+    newAreaInput.oninput = () => {
+      customArea = newAreaInput.value.trim();
+      if (customArea) z.area = customArea;
+    };
+
+    const updateNewAreaVisibility = () => {
+      if (areaDropdown.getValue() === "__new__") {
+        newAreaGroup.removeClass("is-hidden");
+        areaRow.addClass("planning-form-row-2");
+      } else {
+        newAreaGroup.addClass("is-hidden");
+        areaRow.removeClass("planning-form-row-2");
+      }
+    };
+    updateNewAreaVisibility();
+
+    areaDropdown.onChange(val => {
+      updateNewAreaVisibility();
+      if (val !== "__new__") {
+        z.area = val;
+      } else {
+        if (customArea) z.area = customArea;
+      }
+    });
+
+    // Dates row
+    const datesRow = form.createDiv({ cls: "planning-form-row planning-form-row-2" });
+    const startGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    startGroup.createEl("label", { text: "تاریخ شروع", cls: "planning-form-label" });
+    const startInput = startGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    startInput.value = z.start;
+    startInput.onchange = () => { z.start = startInput.value; };
+
+    const dueGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    dueGroup.createEl("label", { text: "تاریخ پایان", cls: "planning-form-label" });
+    const dueInput = dueGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    dueInput.value = z.due;
+    dueInput.onchange = () => { z.due = dueInput.value; };
+
+    // Description Section
+    const descSection = form.createDiv({ cls: "planning-form-group planning-desc-section" });
+    const descHeader = descSection.createDiv({ cls: "planning-desc-header" });
+    const descHeaderLeft = descHeader.createDiv({ cls: "planning-desc-header-info" });
+    descHeaderLeft.createEl("label", {
+      text: "توضیحات و مستندات (پشتیبانی کامل از Markdown)",
+      cls: "planning-form-label"
+    });
+
+    const tabsWrap = descHeader.createDiv({ cls: "planning-desc-tabs" });
+    const previewTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn",
+      text: "👁️ پیش‌نمایش"
+    });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn",
+      text: "✏️ ویرایش متن"
+    });
+
+    const descBody = descSection.createDiv({ cls: "planning-desc-container" });
+    const previewEl = descBody.createDiv({ cls: "planning-desc-preview" });
+    const descTextarea = descBody.createEl("textarea", {
+      cls: "planning-desc-textarea",
+      placeholder: "توضیحات و اهداف این فاز را به زبان مارک‌داون بنویسید...\nمثال:\n## هدف\nتوضیح هدف...\n## معیارهای اصلی\n- [ ] چک‌لیست ۱\n- [ ] چک‌لیست ۲"
+    });
+    descTextarea.value = z.description || "";
+    descTextarea.oninput = () => { z.description = descTextarea.value; };
+
+    const renderPreview = async () => {
+      previewEl.empty();
+      const content = z.description?.trim() || "*هنوز توضیحی برای این فاز ثبت نشده است. برای نوشتن، روی دکمه «ویرایش متن» در بالا کلیک کنید.*";
+      await MarkdownRenderer.render(this.app, content, previewEl, "", this.p);
+    };
+
+    const setTab = (tab: "preview" | "edit") => {
+      if (tab === "preview") {
+        previewTabBtn.addClass("is-active");
+        editTabBtn.removeClass("is-active");
+        previewEl.removeClass("is-hidden");
+        descTextarea.addClass("is-hidden");
+        z.description = descTextarea.value;
+        void renderPreview();
+      } else {
+        editTabBtn.addClass("is-active");
+        previewTabBtn.removeClass("is-active");
+        previewEl.addClass("is-hidden");
+        descTextarea.removeClass("is-hidden");
+        descTextarea.focus();
+      }
+    };
+
+    previewTabBtn.onclick = (e) => { e.preventDefault(); setTab("preview"); };
+    editTabBtn.onclick = (e) => { e.preventDefault(); setTab("edit"); };
+
+    // Default to preview if description has content, otherwise edit
+    const initialTab = z.description?.trim() ? "preview" : "edit";
+    setTab(initialTab);
+
+    // TickTick click handler
+    tickBtn.onclick = async () => {
+      const picked = await new Picker(this.app, this.p).wait();
+      if (picked) {
+        z = { ...z, ...picked, area: z.area, tickId: picked.id };
+        titleInput.value = z.title;
+        startInput.value = z.start;
+        dueInput.value = z.due;
+        descTextarea.value = z.description || "";
+        areaDropdown.setValue(as.includes(z.area) ? z.area : "__new__");
+        updateNewAreaVisibility();
+        void renderPreview();
+      }
+    };
+
+    // Footer
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerLeft = footer.createDiv({ cls: "planning-footer-left" });
+    if (this.init && this.onDelete) {
+      const delBtn = footerLeft.createEl("button", {
+        cls: "planning-btn-danger",
+        text: "🗑️ حذف فاز"
+      });
+      delBtn.onclick = () => {
+        this.end = true;
+        this.done(null);
+        this.close();
+        this.onDelete?.();
+      };
+    }
+
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const cancelBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: "انصراف"
+    });
+    cancelBtn.onclick = () => this.finish(null);
+
+    const saveBtn = footerRight.createEl("button", {
+      cls: "planning-btn-primary mod-cta",
+      text: "ذخیره فاز"
+    });
+    saveBtn.onclick = () => {
+      z.description = descTextarea.value;
+      if (!z.title.trim()) return new Notice("عنوان فاز را وارد کن.");
+      if (!z.area.trim()) return new Notice("حوزه فاز را انتخاب کن.");
+      if (!date(z.start) || !date(z.due) || z.due < z.start) {
+        return new Notice("تاریخ‌های معتبر وارد کن (پایان نباید قبل از شروع باشد).");
+      }
+      this.finish(z);
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+    if (!this.end) this.finish(null);
+  }
+
+  wait() {
+    this.open();
+    return this.res;
+  }
+}
+
+class RoutineEditor extends Modal {
+  done!: (v: (RoutineBar & { area: string }) | null) => void;
+  res = new Promise<(RoutineBar & { area: string }) | null>(r => this.done = r);
+  end = false;
+
+  constructor(
+    a: App,
+    private p: Planning,
+    private initialArea: string | null,
+    private barId?: string,
+    private refresh?: () => void
+  ) {
+    super(a);
+  }
+
+  finish(v: (RoutineBar & { area: string }) | null) {
+    if (!this.end) {
+      this.end = true;
+      this.done(v);
+      this.close();
+    }
+  }
+
+  onOpen() {
+    this.modalEl.addClass("planning-modal", "planning-routine-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+
+    const original = this.initialArea && this.barId
+      ? this.p.settings.routineBars[this.initialArea]?.find(bar => bar.id === this.barId)
+      : undefined;
+
+    let selected = this.initialArea || R[0];
+    let customArea = "";
+    let title = original?.title || "";
+    let start = original?.start || "";
+    let due = original?.due || "";
+
+    // Header
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    header.createDiv({ cls: "planning-modal-title-wrap" }).createEl("h2", {
+      text: original ? "ویرایش نوار حوزه" : "افزودن نوار حوزه",
+      cls: "planning-modal-title"
+    });
+
+    // Body
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    const form = body.createDiv({ cls: "planning-form" });
+
+    // Area row
+    const areaRow = form.createDiv({ cls: "planning-form-row" });
+    const areaGroup = areaRow.createDiv({ cls: "planning-form-group" });
+    areaGroup.createEl("label", { text: "حوزهٔ پروژه", cls: "planning-form-label" });
+    const areaDropdown = new DropdownComponent(areaGroup);
+    const names = this.p.areaNames();
+    names.forEach(name => areaDropdown.addOption(name, name));
+    areaDropdown.addOption("__new__", "＋ ساخت حوزهٔ جدید");
+    areaDropdown.setValue(names.includes(selected) ? selected : "__new__");
+    areaDropdown.selectEl.addClass("planning-select");
+
+    const newAreaGroup = areaRow.createDiv({ cls: "planning-form-group planning-new-area-group" });
+    newAreaGroup.createEl("label", { text: "نام حوزهٔ جدید", cls: "planning-form-label" });
+    const newAreaInput = newAreaGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input",
+      placeholder: "نام حوزهٔ جدید..."
+    });
+    newAreaInput.oninput = () => {
+      customArea = newAreaInput.value.trim();
+      if (customArea) selected = customArea;
+    };
+
+    const updateVisibility = () => {
+      if (areaDropdown.getValue() === "__new__") {
+        newAreaGroup.removeClass("is-hidden");
+        areaRow.addClass("planning-form-row-2");
+      } else {
+        newAreaGroup.addClass("is-hidden");
+        areaRow.removeClass("planning-form-row-2");
+      }
+    };
+    updateVisibility();
+
+    areaDropdown.onChange(val => {
+      updateVisibility();
+      selected = val === "__new__" ? customArea : val;
+    });
+
+    // Title group
+    const titleGroup = form.createDiv({ cls: "planning-form-group" });
+    titleGroup.createEl("label", { text: "عنوان نوار (اختیاری)", cls: "planning-form-label" });
+    const titleInput = titleGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input",
+      placeholder: "اختیاری؛ برای تشخیص نوارهای یک حوزه استفاده می‌شود."
+    });
+    titleInput.value = title;
+    titleInput.oninput = () => { title = titleInput.value.trim(); };
+
+    // Dates row
+    const datesRow = form.createDiv({ cls: "planning-form-row planning-form-row-2" });
+    const startGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    startGroup.createEl("label", { text: "شروع نوار", cls: "planning-form-label" });
+    const startInput = startGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    startInput.value = start;
+    startInput.onchange = () => { start = startInput.value; };
+
+    const dueGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    dueGroup.createEl("label", { text: "پایان نوار", cls: "planning-form-label" });
+    const dueInput = dueGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    dueInput.value = due;
+    dueInput.onchange = () => { due = dueInput.value; };
+
+    // Footer
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerLeft = footer.createDiv({ cls: "planning-footer-left" });
+    if (original) {
+      const delBtn = footerLeft.createEl("button", {
+        cls: "planning-btn-danger",
+        text: "🗑️ حذف نوار"
+      });
+      delBtn.onclick = async () => {
+        if (!confirm("آیا از حذف این نوار اطمینان دارید؟")) return;
+        this.p.settings.routineBars[this.initialArea!] = this.p.settings.routineBars[this.initialArea!].filter(bar => bar.id !== original.id);
+        await this.p.save();
+        this.refresh?.();
+        this.end = true;
+        this.done(null);
+        this.close();
+      };
+    }
+
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const cancelBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: "انصراف"
+    });
+    cancelBtn.onclick = () => this.finish(null);
+
+    const saveBtn = footerRight.createEl("button", {
+      cls: "planning-btn-primary mod-cta",
+      text: "ذخیره نوار"
+    });
+    saveBtn.onclick = () => {
+      if (!selected || !date(start) || !date(due) || due < start) {
+        return new Notice("حوزه و بازهٔ زمانی معتبر وارد کن.");
+      }
+      this.finish({
+        id: original?.id || crypto.randomUUID(),
+        area: selected,
+        title,
+        start,
+        due
+      });
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+    if (!this.end) this.finish(null);
+  }
+
+  wait() {
+    this.open();
+    return this.res;
+  }
+}
+
+class Picker extends Modal {
+  done!: (v: TickTickTaskSelection | null) => void;
+  res = new Promise<TickTickTaskSelection | null>(r => this.done = r);
+  end = false;
+
+  constructor(a: App, private p: Planning) {
+    super(a);
+  }
+
+  finish(v: TickTickTaskSelection | null) {
+    if (!this.end) {
+      this.end = true;
+      this.done(v);
+      this.close();
+    }
+  }
+
+  async onOpen() {
+    this.modalEl.addClass("planning-modal", "planning-picker-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    header.createDiv({ cls: "planning-modal-title-wrap" }).createEl("h2", {
+      text: "انتخاب تسک از TickTick",
+      cls: "planning-modal-title"
+    });
+
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body planning-picker-body" });
+
+    try {
+      const tasks = await this.p.pick();
+      const byProject = tasks.reduce((acc, t) => {
+        const pName = t.projectName || "بدون پروژه";
+        if (!acc[pName]) acc[pName] = [];
+        acc[pName].push(t);
+        return acc;
+      }, {} as Record<string, TickTickTaskSelection[]>);
+
+      const container = body.createDiv({ cls: "planning-picker-container" });
+      for (const [pName, pTasks] of Object.entries(byProject)) {
+        const group = container.createDiv({ cls: "planning-picker-group" });
+        group.createEl("h3", { text: pName, cls: "planning-picker-group-title" });
+        const list = group.createDiv({ cls: "planning-picker-list" });
+        for (const t of pTasks) {
+          const btn = list.createEl("button", { cls: "planning-picker-item" });
+          btn.createDiv({ cls: "planning-picker-item-title", text: t.title });
+          if (t.start || t.due) {
+            btn.createDiv({ cls: "planning-picker-item-date", text: `${fmt(t.start)} — ${fmt(t.due)}` });
+          }
+          btn.onclick = () => this.finish(t);
+        }
+      }
+    } catch (e) {
+      body.createEl("p", {
+        cls: "planning-error-text",
+        text: e instanceof Error ? e.message : "خطا در اتصال به TickTick"
+      });
+    }
+
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const closeBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: "بستن"
+    });
+    closeBtn.onclick = () => this.finish(null);
+  }
+
+  onClose() {
+    this.contentEl.empty();
+    if (!this.end) this.finish(null);
+  }
+
+  wait() {
+    this.open();
+    return this.res;
+  }
+}
+
+class Manager extends Modal {
+  constructor(a: App, private p: Planning, private r: () => void) {
+    super(a);
+  }
+
+  onOpen() {
+    this.modalEl.addClass("planning-modal", "planning-manager-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    header.createDiv({ cls: "planning-modal-title-wrap" }).createEl("h2", {
+      text: "مدیریت فازها و تسک‌ها",
+      cls: "planning-modal-title"
+    });
+
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    for (const t of this.p.tasks()) {
+      const x = body.createDiv({ cls: "planning-manager-row" });
+      x.createSpan({ text: `${t.area} — ${t.title}` });
+      const actions = x.createDiv({ cls: "planning-row-actions" });
+      actions.createEl("button", { text: "ویرایش" }).onclick = () => void this.p.edit(t, this.r);
+      actions.createEl("button", { text: "حذف", cls: "planning-btn-danger mod-warning" }).onclick = () => void this.p.del(t, this.r);
+    }
+
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const closeBtn = footerRight.createEl("button", {
+      cls: "planning-btn-primary mod-cta",
+      text: "بستن"
+    });
+    closeBtn.onclick = () => this.close();
+  }
+}
 
 const date=(x:string)=>/^\d{4}-\d{2}-\d{2}$/.test(x),key=(x:unknown)=>date(String(x).slice(0,10))?String(x).slice(0,10):"",diff=(a:string,b:string)=>Math.round((Date.parse(b+"T12:00Z")-Date.parse(a+"T12:00Z"))/864e5),shift=(a:string,n:number)=>new Date(Date.parse(a+"T12:00Z")+n*864e5).toISOString().slice(0,10),pos=(e:HTMLElement,s:string,a:string,b:string,n:number)=>{const o=Math.max(0,diff(s,a)),d=Math.min(n-o,Math.max(1,diff(a,b)+1));e.setCssProps({right:`${o/n*100}%`,width:`${Math.max(1.2,d/n*100)}%`})},fmt=(x:string)=>date(x)?new Intl.DateTimeFormat("fa-IR-u-ca-persian",{month:"numeric",day:"numeric"}).format(new Date(x+"T12:00")):"—",areas=(x:Task[],routineAreas:string[]=[])=>{const fixed=[...R,F],custom=[...new Set([...x.map(t=>t.area),...routineAreas])].filter(area=>!fixed.includes(area)).sort((a,b)=>a.localeCompare(b,"fa"));return[...fixed,...custom]},months=(s:string,d:string)=>{const f=new Intl.DateTimeFormat("fa-IR-u-ca-persian",{month:"long"}),o:{l:string;n:number}[]=[];for(let x=s;x<=d;x=new Date(Date.parse(x+"T12:00Z")+864e5).toISOString().slice(0,10)){const l=f.format(new Date(x+"T12:00Z")),q=o.at(-1);q?.l===l?q.n++:o.push({l,n:1})}return o},color=(a:string)=>({"بهبود فردی":"#10b981","زبان آلمانی":"#f59e0b","کاتلین و اندروید":"#3b82f6"}as Record<string,string>)[a]||"#8b5cf6",tone=(a:string)=>({"بهبود فردی":"personal","زبان آلمانی":"language","کاتلین و اندروید":"kotlin","فین‌ترک و شاپ":"fintrack"}as Record<string,string>)[a]||"personal",icon=(a:string)=>({"بهبود فردی":"🌱","زبان آلمانی":"🇩🇪","کاتلین و اندروید":"🧩","فین‌ترک و شاپ":"🛠️"}as Record<string,string>)[a]||"📁";

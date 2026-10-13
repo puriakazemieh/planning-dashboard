@@ -271,76 +271,683 @@
   color: var(--color-red); 
 }
 
-.planning-manager-row { display:flex; align-items:center; gap:.5rem; margin:.45rem 0; }
-.planning-manager-row span { flex:1; }
-
-.planning-empty { padding: 1.5rem 0; color: var(--text-muted); font-size: 0.88rem; text-align: center; font-style: italic; opacity: 0.7; }
-.planning-description { max-height:68vh; min-width:min(42rem,82vw); padding:1.2rem 1.35rem; overflow:auto; direction:rtl; color:var(--text-normal); font-size:1rem; background:var(--background-primary); border:1px solid var(--interactive-accent); border-radius:.75rem; line-height:2; box-shadow:0 8px 28px color-mix(in srgb, var(--background-primary) 45%, transparent); }
-.planning-description h1,.planning-description h2,.planning-description h3 { margin-top:1.25rem; color:var(--text-normal); }
-.planning-description-edit { width:100%; resize:vertical; font-family:inherit; padding:10px; }
-
-@media (max-width: 650px) { 
-  .planning-season-body { flex-direction: column; gap: .45rem; } 
-  .planning-labels { display: none; } 
-  .planning-phase-grid { grid-template-columns: 1fr !important; } 
+/* Modern Planning Modals (Responsive, RTL, Rich Markdown) */
+.modal.planning-modal {
+  width: min(880px, 94vw) !important;
+  max-width: 880px !important;
+  max-height: 88vh !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  border-radius: 1.15rem !important;
+  overflow: hidden !important;
+  direction: rtl !important;
+  text-align: right !important;
+  background: var(--background-primary) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 80%, transparent) !important;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.48), 0 0 0 1px color-mix(in srgb, #fff 5%, transparent) !important;
 }
 
-/* Picker Modal */
+.modal.planning-modal .modal-close-button {
+  top: 1.15rem;
+  left: 1.35rem;
+  right: auto;
+  z-index: 20;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  padding: 0.35rem;
+  color: var(--text-muted);
+  transition: all 160ms ease;
+}
+
+.modal.planning-modal .modal-close-button:hover {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+}
+
+.planning-modal-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 88vh;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+/* Modal Header */
+.planning-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding: 1.2rem 1.65rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary));
+  flex-shrink: 0;
+}
+
+.planning-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.planning-modal-title {
+  margin: 0 !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: var(--text-normal) !important;
+  line-height: 1.3;
+}
+
+.planning-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--badge-color, var(--interactive-accent)) 15%, transparent);
+  color: var(--badge-color, var(--interactive-accent));
+  border: 1px solid color-mix(in srgb, var(--badge-color, var(--interactive-accent)) 32%, transparent);
+}
+
+.planning-area-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.planning-area-mode-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.planning-mode-label {
+  white-space: nowrap;
+}
+
+/* Modal Body */
+.planning-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.35rem 1.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+/* Modal Footer */
+.planning-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding: 1rem 1.65rem;
+  border-top: 1px solid var(--background-modifier-border);
+  background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary));
+  flex-shrink: 0;
+}
+
+.planning-footer-left,
+.planning-footer-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* Form Groups & Controls */
+.planning-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.planning-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.planning-form-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.planning-input,
+.planning-desc-textarea {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text-normal);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.65rem;
+  outline: none;
+  transition: all 180ms ease;
+  box-sizing: border-box;
+}
+
+.planning-input:focus,
+.planning-desc-textarea:focus,
+.planning-select:focus,
+.planning-modal select.dropdown:focus {
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 25%, transparent) !important;
+}
+
+.planning-input-lg {
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+}
+
+/* Custom Dropdown Styling (Fixes RTL text clipping bug completely) */
+.planning-select,
+.planning-modal select.dropdown {
+  width: 100% !important;
+  height: 2.65rem !important;
+  min-height: 2.65rem !important;
+  padding-top: 0.45rem !important;
+  padding-bottom: 0.45rem !important;
+  padding-right: 1.1rem !important;
+  padding-left: 2.4rem !important;
+  font-size: 0.95rem !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  color: var(--text-normal) !important;
+  background-color: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 0.65rem !important;
+  outline: none !important;
+  cursor: pointer !important;
+  direction: rtl !important;
+  text-align: right !important;
+  box-sizing: border-box !important;
+  transition: all 180ms ease !important;
+
+  /* Remove native OS widget that causes RTL text clipping */
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+
+  /* Custom chevron icon on the left (RTL friendly) */
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>') !important;
+  background-repeat: no-repeat !important;
+  background-position: left 0.85rem center !important;
+  background-size: 0.95rem !important;
+}
+
+.planning-select option,
+.planning-modal select.dropdown option {
+  background-color: var(--background-primary) !important;
+  color: var(--text-normal) !important;
+  padding: 0.6rem 0.85rem !important;
+  font-size: 0.95rem !important;
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.planning-select-sm,
+.planning-modal select.dropdown.planning-select-sm {
+  width: auto !important;
+  height: 2.15rem !important;
+  min-height: 2.15rem !important;
+  padding: 0.25rem 0.75rem !important;
+  padding-right: 0.85rem !important;
+  padding-left: 1.9rem !important;
+  font-size: 0.82rem !important;
+  border-radius: 0.5rem !important;
+  background-position: left 0.55rem center !important;
+  background-size: 0.85rem !important;
+}
+
+.planning-date-input {
+  direction: ltr !important;
+  text-align: right !important;
+  min-height: 2.6rem;
+}
+
+.planning-form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.planning-form-row-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.planning-tick-btn {
+  font-size: 0.82rem !important;
+  padding: 0.35rem 0.85rem !important;
+  border-radius: 999px !important;
+}
+
+/* Description Section & Tabs */
+.planning-desc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.4rem;
+}
+
+.planning-desc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.planning-desc-tabs {
+  display: inline-flex;
+  background: color-mix(in srgb, var(--background-secondary-alt) 80%, transparent);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.planning-tab-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.32rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.planning-tab-btn:hover {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+}
+
+.planning-tab-btn.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+
+.planning-desc-container {
+  position: relative;
+  width: 100%;
+}
+
+.planning-desc-textarea {
+  min-height: 260px;
+  max-height: 48vh;
+  resize: vertical;
+  line-height: 1.8;
+  direction: rtl;
+  text-align: right;
+  font-family: var(--font-text, inherit);
+  font-size: 0.96rem;
+  padding: 1rem 1.25rem;
+  background: var(--background-primary);
+}
+
+.planning-area-textarea {
+  min-height: 320px;
+}
+
+/* Rich Markdown Preview */
+.planning-desc-preview {
+  min-height: 260px;
+  max-height: 52vh;
+  overflow-y: auto;
+  direction: rtl;
+  text-align: right;
+  padding: 1.25rem 1.45rem;
+  background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.75rem;
+  line-height: 1.95;
+  color: var(--text-normal);
+  font-size: 0.98rem;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.planning-area-view-card {
+  min-height: 320px;
+  max-height: 58vh;
+  background: color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 25%, var(--background-modifier-border));
+}
+
+/* Rendered Markdown Element Styling */
+.planning-desc-preview h1,
+.planning-desc-preview h2,
+.planning-desc-preview h3,
+.planning-desc-preview h4 {
+  color: var(--text-normal);
+  font-weight: 700;
+  margin-top: 1.4rem;
+  margin-bottom: 0.6rem;
+  line-height: 1.35;
+}
+
+.planning-desc-preview h1 {
+  font-size: 1.38rem;
+  border-bottom: 2px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+  padding-bottom: 0.45rem;
+}
+
+.planning-desc-preview h2 {
+  font-size: 1.22rem;
+  color: var(--interactive-accent);
+  border-right: 3px solid var(--interactive-accent);
+  padding-right: 0.5rem;
+}
+
+.planning-desc-preview h3 {
+  font-size: 1.08rem;
+  color: color-mix(in srgb, var(--text-normal) 90%, var(--interactive-accent));
+}
+
+.planning-desc-preview p {
+  margin-top: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.planning-desc-preview ul,
+.planning-desc-preview ol {
+  padding-right: 1.6rem;
+  padding-left: 0;
+  margin: 0.6rem 0;
+}
+
+.planning-desc-preview li {
+  margin-bottom: 0.4rem;
+}
+
+.planning-desc-preview hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to left, transparent, color-mix(in srgb, var(--background-modifier-border) 80%, transparent), transparent);
+  margin: 1.5rem 0;
+}
+
+.planning-desc-preview blockquote {
+  margin: 0.9rem 0;
+  padding: 0.6rem 1.1rem;
+  border-right: 3px solid var(--interactive-accent);
+  border-left: none;
+  background: color-mix(in srgb, var(--interactive-accent) 8%, transparent);
+  border-radius: 0 0.45rem 0.45rem 0;
+  color: var(--text-muted);
+}
+
+.planning-desc-preview input[type="checkbox"] {
+  margin: 0.3rem 0 0 0.5rem;
+  cursor: pointer;
+  accent-color: var(--interactive-accent);
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.planning-desc-preview .task-list-item {
+  list-style-type: none;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0.4rem;
+}
+
+.planning-desc-preview strong,
+.planning-desc-preview b {
+  font-weight: 700;
+  color: var(--text-normal);
+}
+
+.planning-desc-preview a.internal-link {
+  color: var(--interactive-accent);
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.1rem 0.4rem;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  border-radius: 0.35rem;
+  transition: all 160ms ease;
+}
+
+.planning-desc-preview a.internal-link:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 24%, transparent);
+}
+
+/* Action Buttons */
+.planning-btn-primary {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border: none !important;
+  border-radius: 999px !important;
+  padding: 0.55rem 1.35rem !important;
+  font-weight: 600 !important;
+  font-size: 0.9rem !important;
+  cursor: pointer !important;
+  transition: all 180ms ease !important;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
+}
+
+.planning-btn-primary:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.planning-btn-secondary {
+  background: color-mix(in srgb, var(--background-secondary-alt) 80%, transparent) !important;
+  color: var(--text-normal) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 999px !important;
+  padding: 0.55rem 1.15rem !important;
+  font-weight: 500 !important;
+  font-size: 0.88rem !important;
+  cursor: pointer !important;
+  transition: all 160ms ease !important;
+}
+
+.planning-btn-secondary:hover {
+  background: var(--background-modifier-hover) !important;
+  border-color: var(--text-muted) !important;
+}
+
+.planning-btn-danger {
+  background: color-mix(in srgb, var(--color-red) 12%, transparent) !important;
+  color: var(--color-red) !important;
+  border: 1px solid color-mix(in srgb, var(--color-red) 35%, transparent) !important;
+  border-radius: 999px !important;
+  padding: 0.55rem 1.15rem !important;
+  font-weight: 600 !important;
+  font-size: 0.88rem !important;
+  cursor: pointer !important;
+  transition: all 160ms ease !important;
+}
+
+.planning-btn-danger:hover {
+  background: var(--color-red) !important;
+  color: #fff !important;
+  border-color: var(--color-red) !important;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* TickTick Picker */
 .planning-picker-modal .modal-content {
   padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
+
 .planning-picker-container {
-  max-height: 60vh;
+  max-height: 58vh;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.5rem 0;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
+
 .planning-picker-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
+
 .planning-picker-group-title {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.1rem;
-  color: var(--interactive-accent);
+  margin: 0 !important;
+  font-size: 1.05rem !important;
+  color: var(--interactive-accent) !important;
   border-bottom: 1px solid var(--background-modifier-border);
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.35rem;
 }
+
 .planning-picker-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
 }
+
 .planning-picker-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   text-align: right;
-  padding: 0.75rem;
+  padding: 0.85rem;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 0.5rem;
+  border-radius: 0.6rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 180ms ease;
 }
+
 .planning-picker-item:hover {
   background: var(--background-primary);
   border-color: var(--interactive-accent);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--interactive-accent) 15%, transparent);
 }
+
 .planning-picker-item-title {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--text-normal);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
+
 .planning-picker-item-date {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
+}
+
+/* Manager modal */
+.planning-manager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.6rem;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  margin-bottom: 0.45rem;
+}
+
+.planning-manager-row span {
+  flex: 1;
+  font-weight: 500;
+  font-size: 0.92rem;
+}
+
+/* Tablet & Mobile Breakpoints */
+@media (max-width: 800px) {
+  .modal.planning-modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 92vh !important;
+  }
+  .planning-modal-header,
+  .planning-modal-body,
+  .planning-modal-footer {
+    padding-left: 1.2rem;
+    padding-right: 1.2rem;
+  }
+  .planning-form-row-2 {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+  .planning-desc-textarea,
+  .planning-desc-preview {
+    min-height: 220px;
+    max-height: 45vh;
+  }
+}
+
+@media (max-width: 540px) {
+  .modal.planning-modal {
+    width: 98vw !important;
+    max-width: 98vw !important;
+    max-height: 96vh !important;
+    border-radius: 0.85rem !important;
+  }
+  .planning-modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 1rem 1.1rem;
+  }
+  .planning-modal-header .modal-close-button {
+    top: 0.85rem;
+    left: 0.85rem;
+  }
+  .planning-modal-body {
+    padding: 1rem 1.1rem;
+    gap: 1rem;
+  }
+  .planning-modal-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.85rem 1.1rem;
+  }
+  .planning-footer-left,
+  .planning-footer-right {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .planning-footer-left button,
+  .planning-footer-right button {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .planning-desc-tabs {
+    width: 100%;
+    display: flex;
+  }
+  .planning-tab-btn {
+    flex: 1;
+    text-align: center;
+  }
 }

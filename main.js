@@ -362,66 +362,136 @@ var AreaModal = class extends import_obsidian.Modal {
     this.area = area;
     this.r = r;
   }
-  isEditing = false;
   async onOpen() {
-    this.renderContent();
-  }
-  async renderContent() {
+    this.modalEl.addClass("planning-modal", "planning-area-modal");
     this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: this.area });
-    if (this.isEditing) {
-      const ta = this.contentEl.createEl("textarea", { cls: "planning-description-edit" });
-      ta.value = this.p.settings.areaDescriptions[this.area] || "";
-      ta.rows = 12;
-      const container = this.contentEl.createDiv({ cls: "modal-button-container" });
-      container.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).onclick = () => {
-        this.isEditing = false;
-        this.renderContent();
-      };
-      container.createEl("button", { text: "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A", cls: "mod-cta" }).onclick = async () => {
-        this.p.settings.areaDescriptions[this.area] = ta.value;
-        await this.p.save();
-        this.r();
-        this.isEditing = false;
-        this.renderContent();
-      };
-    } else {
-      const x = this.contentEl.createDiv({ cls: "planning-description" });
-      await import_obsidian.MarkdownRenderer.render(this.app, this.p.settings.areaDescriptions[this.area] || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", x, "", this.p);
-      new import_obsidian.Setting(this.contentEl).setName("\u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647\u0654 \u0641\u0635\u0644\u06CC").setDesc("\u0645\u0634\u062E\u0635 \u0645\u06CC\u200C\u06A9\u0646\u062F \u0646\u0648\u0627\u0631 \u0647\u062F\u0641\u060C \u062A\u0633\u06A9\u200C\u0647\u0627 \u06CC\u0627 \u0647\u0631 \u062F\u0648 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0648\u0632\u0647 \u0646\u0634\u0627\u0646 \u062F\u0627\u062F\u0647 \u0634\u0648\u0646\u062F.").addDropdown((dropdown) => {
-        dropdown.addOption("routine", "\u0641\u0642\u0637 \u0646\u0648\u0627\u0631");
-        dropdown.addOption("tasks", "\u0641\u0642\u0637 \u062A\u0633\u06A9\u200C\u0647\u0627");
-        dropdown.addOption("both", "\u0647\u0631 \u062F\u0648");
-        dropdown.setValue(this.p.areaDisplayMode(this.area));
-        dropdown.onChange(async (value) => {
-          this.p.settings.areaDisplayModes[this.area] = value;
-          await this.p.save();
-          this.r();
-        });
-      });
-      const container = this.contentEl.createDiv({ cls: "modal-button-container" });
-      container.createEl("button", { text: "\u0628\u0633\u062A\u0646" }).onclick = () => this.close();
-      container.createEl("button", { text: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646" }).onclick = () => {
-        this.isEditing = true;
-        this.renderContent();
-      };
-      container.createEl("button", { text: this.p.settings.routineSchedules[this.area] ? "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u0648\u0627\u0631" : "\u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0648\u0627\u0631" }).onclick = () => void this.p.editRoutine(this.area, () => {
-        this.r();
-        this.close();
-      });
-      container.createEl("button", { text: "\u062D\u0630\u0641 \u067E\u0631\u0648\u0698\u0647", cls: "mod-warning" }).onclick = async () => {
-        if (!confirm(`\u0622\u06CC\u0627 \u0627\u0632 \u062D\u0630\u0641 \u06A9\u0627\u0645\u0644 \u067E\u0631\u0648\u0698\u0647 \xAB${this.area}\xBB \u0648 \u062A\u0645\u0627\u0645 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0622\u0646 \u0645\u0637\u0645\u0626\u0646 \u0647\u0633\u062A\u06CC\u062F\u061F`)) return;
-        this.p.settings.tasks = this.p.settings.tasks.filter((t) => t.area !== this.area);
-        delete this.p.settings.areaDescriptions[this.area];
-        delete this.p.settings.routineSchedules[this.area];
-        delete this.p.settings.routineBars[this.area];
-        delete this.p.settings.areaDisplayModes[this.area];
-        if (!this.p.settings.deletedAreas.includes(this.area)) this.p.settings.deletedAreas.push(this.area);
-        await this.p.save();
-        this.close();
-        this.r();
-      };
-    }
+    this.contentEl.addClass("planning-modal-inner");
+    let currentText = this.p.settings.areaDescriptions[this.area] || "";
+    let isEditing = false;
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    const titleWrap = header.createDiv({ cls: "planning-modal-title-wrap" });
+    const iconEl = titleWrap.createSpan({ cls: "planning-area-icon" });
+    iconEl.setText(icon(this.area));
+    iconEl.style.setProperty("--area-color", color(this.area));
+    titleWrap.createEl("h2", { text: this.area, cls: "planning-modal-title" });
+    const modeWrap = header.createDiv({ cls: "planning-area-mode-wrap" });
+    modeWrap.createEl("span", { text: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647:", cls: "planning-mode-label" });
+    const modeDropdown = new import_obsidian.DropdownComponent(modeWrap);
+    modeDropdown.addOption("routine", "\u0641\u0642\u0637 \u0646\u0648\u0627\u0631 \u0647\u062F\u0641");
+    modeDropdown.addOption("tasks", "\u0641\u0642\u0637 \u062A\u0633\u06A9\u200C\u0647\u0627");
+    modeDropdown.addOption("both", "\u0647\u0631 \u062F\u0648 (\u0646\u0648\u0627\u0631 + \u062A\u0633\u06A9)");
+    modeDropdown.setValue(this.p.areaDisplayMode(this.area));
+    modeDropdown.selectEl.addClass("planning-select", "planning-select-sm");
+    modeDropdown.onChange(async (value) => {
+      this.p.settings.areaDisplayModes[this.area] = value;
+      await this.p.save();
+      this.r();
+    });
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    const descSection = body.createDiv({ cls: "planning-desc-section" });
+    const descHeader = descSection.createDiv({ cls: "planning-desc-header" });
+    descHeader.createEl("span", { text: "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627 \u0648 \u0631\u0627\u0647\u0646\u0645\u0627\u06CC \u062D\u0648\u0632\u0647 (Markdown)", cls: "planning-form-label" });
+    const tabsWrap = descHeader.createDiv({ cls: "planning-desc-tabs" });
+    const previewTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn is-active",
+      text: "\u{1F441}\uFE0F \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u062A\u0646"
+    });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn",
+      text: "\u270F\uFE0F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646"
+    });
+    const descContainer = descSection.createDiv({ cls: "planning-desc-container" });
+    const previewEl = descContainer.createDiv({ cls: "planning-desc-preview planning-area-view-card" });
+    const textareaEl = descContainer.createEl("textarea", {
+      cls: "planning-desc-textarea planning-area-textarea is-hidden",
+      placeholder: "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627 \u0648 \u0631\u0627\u0647\u0646\u0645\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0648\u0632\u0647 \u0631\u0627 \u0628\u0647 \u0632\u0628\u0627\u0646 \u0645\u0627\u0631\u06A9\u200C\u062F\u0627\u0648\u0646 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F..."
+    });
+    textareaEl.value = currentText;
+    const renderPreview = async () => {
+      previewEl.empty();
+      const textToRender = currentText.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0648\u0632\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0627\u0641\u0632\u0648\u062F\u0646 \u0631\u0627\u0647\u0646\u0645\u0627 \u0648 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627\u060C \u0631\u0648\u06CC \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
+      await import_obsidian.MarkdownRenderer.render(this.app, textToRender, previewEl, "", this.p);
+    };
+    void renderPreview();
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerLeft = footer.createDiv({ cls: "planning-footer-left" });
+    const delBtn = footerLeft.createEl("button", { cls: "planning-btn-danger", text: "\u{1F5D1}\uFE0F \u062D\u0630\u0641 \u067E\u0631\u0648\u0698\u0647" });
+    delBtn.onclick = async () => {
+      if (!confirm(`\u0622\u06CC\u0627 \u0627\u0632 \u062D\u0630\u0641 \u06A9\u0627\u0645\u0644 \u067E\u0631\u0648\u0698\u0647 \xAB${this.area}\xBB \u0648 \u062A\u0645\u0627\u0645 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0622\u0646 \u0645\u0637\u0645\u0626\u0646 \u0647\u0633\u062A\u06CC\u062F\u061F`)) return;
+      this.p.settings.tasks = this.p.settings.tasks.filter((t) => t.area !== this.area);
+      delete this.p.settings.areaDescriptions[this.area];
+      delete this.p.settings.routineSchedules[this.area];
+      delete this.p.settings.routineBars[this.area];
+      delete this.p.settings.areaDisplayModes[this.area];
+      if (!this.p.settings.deletedAreas.includes(this.area)) this.p.settings.deletedAreas.push(this.area);
+      await this.p.save();
+      this.close();
+      this.r();
+    };
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const hasBars = (this.p.settings.routineBars[this.area]?.length ?? 0) > 0 || !!this.p.settings.routineSchedules[this.area];
+    const routineBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: hasBars ? "\u{1F4C5} \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u0648\u0627\u0631 \u062D\u0648\u0632\u0647" : "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0648\u0627\u0631 \u062D\u0648\u0632\u0647"
+    });
+    routineBtn.onclick = () => {
+      this.close();
+      void this.p.editRoutine(this.area, () => this.r());
+    };
+    const toggleEditBtn = footerRight.createEl("button", { cls: "planning-btn-secondary", text: "\u270F\uFE0F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646" });
+    const cancelEditBtn = footerRight.createEl("button", { cls: "planning-btn-secondary is-hidden", text: "\u0627\u0646\u0635\u0631\u0627\u0641" });
+    const saveDescBtn = footerRight.createEl("button", { cls: "planning-btn-primary mod-cta is-hidden", text: "\u{1F4BE} \u0630\u062E\u06CC\u0631\u0647 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
+    const closeBtn = footerRight.createEl("button", { cls: "planning-btn-primary mod-cta", text: "\u0628\u0633\u062A\u0646" });
+    closeBtn.onclick = () => this.close();
+    const updateViewMode = (editing) => {
+      isEditing = editing;
+      if (editing) {
+        previewTabBtn.removeClass("is-active");
+        editTabBtn.addClass("is-active");
+        previewEl.addClass("is-hidden");
+        textareaEl.removeClass("is-hidden");
+        textareaEl.focus();
+        routineBtn.addClass("is-hidden");
+        toggleEditBtn.addClass("is-hidden");
+        closeBtn.addClass("is-hidden");
+        cancelEditBtn.removeClass("is-hidden");
+        saveDescBtn.removeClass("is-hidden");
+      } else {
+        editTabBtn.removeClass("is-active");
+        previewTabBtn.addClass("is-active");
+        textareaEl.addClass("is-hidden");
+        previewEl.removeClass("is-hidden");
+        void renderPreview();
+        routineBtn.removeClass("is-hidden");
+        toggleEditBtn.removeClass("is-hidden");
+        closeBtn.removeClass("is-hidden");
+        cancelEditBtn.addClass("is-hidden");
+        saveDescBtn.addClass("is-hidden");
+      }
+    };
+    previewTabBtn.onclick = (e) => {
+      e.preventDefault();
+      currentText = textareaEl.value;
+      updateViewMode(false);
+    };
+    editTabBtn.onclick = (e) => {
+      e.preventDefault();
+      updateViewMode(true);
+    };
+    toggleEditBtn.onclick = () => updateViewMode(true);
+    cancelEditBtn.onclick = () => {
+      textareaEl.value = this.p.settings.areaDescriptions[this.area] || "";
+      currentText = textareaEl.value;
+      updateViewMode(false);
+    };
+    saveDescBtn.onclick = async () => {
+      currentText = textareaEl.value;
+      this.p.settings.areaDescriptions[this.area] = currentText;
+      await this.p.save();
+      this.r();
+      new import_obsidian.Notice("\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+      updateViewMode(false);
+    };
   }
 };
 var Editor = class extends import_obsidian.Modal {
@@ -442,62 +512,208 @@ var Editor = class extends import_obsidian.Modal {
     }
   }
   onOpen() {
-    let z = { area: this.init?.area || F, title: this.init?.title || "", start: this.init?.start || "", due: this.init?.due || "", status: this.init?.status || "todo", description: this.init?.description || "", tickId: this.init?.tickId, projectId: this.init?.projectId }, custom = "";
-    this.contentEl.createEl("h2", { text: this.init ? "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0641\u0627\u0632" : "\u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u0627\u0632" });
-    let ti, si, di, ta;
-    new import_obsidian.Setting(this.contentEl).setName("\u0639\u0646\u0648\u0627\u0646").addText((i) => {
-      ti = i.inputEl;
-      i.setValue(z.title).onChange((v) => z.title = v);
-    });
-    new import_obsidian.Setting(this.contentEl).setName("\u062D\u0648\u0632\u0647").addDropdown((i) => {
-      const as = this.p.areaNames();
-      as.forEach((a2) => i.addOption(a2, a2));
-      i.addOption("__new__", "\uFF0B \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F");
-      i.setValue(as.includes(z.area) ? z.area : "__new__");
-      i.onChange((v) => {
-        if (v !== "__new__") z.area = v;
-        else z.area = custom;
-      });
-    });
-    new import_obsidian.Setting(this.contentEl).setName("\u0646\u0627\u0645 \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F").setDesc("\u0628\u0631\u0627\u06CC \u0633\u0627\u062E\u062A \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F\u060C \u0646\u0627\u0645 \u0622\u0646 \u0631\u0627 \u0627\u06CC\u0646\u062C\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.").addText((i) => i.onChange((v) => {
-      custom = v.trim();
-      if (custom) z.area = custom;
-    }));
-    new import_obsidian.Setting(this.contentEl).setName("\u0634\u0631\u0648\u0639").addText((i) => {
-      si = i.inputEl;
-      i.inputEl.type = "date";
-      i.setValue(z.start).onChange((v) => z.start = v);
-    });
-    new import_obsidian.Setting(this.contentEl).setName("\u067E\u0627\u06CC\u0627\u0646").addText((i) => {
-      di = i.inputEl;
-      i.inputEl.type = "date";
-      i.setValue(z.due).onChange((v) => z.due = v);
-    });
-    new import_obsidian.Setting(this.contentEl).setName("\u062A\u0648\u0636\u06CC\u062D\u0627\u062A").addTextArea((i) => {
-      ta = i.inputEl;
-      i.inputEl.rows = 6;
-      i.setValue(z.description || "").onChange((v) => z.description = v);
-    });
-    new import_obsidian.Setting(this.contentEl).setName("\u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0632 TickTick").addButton((b) => b.setButtonText("\u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0633\u06A9").onClick(async () => {
-      const x = await new Picker(this.app, this.p).wait();
-      if (x) {
-        z = { ...z, ...x, area: z.area, tickId: x.id };
-        ti.value = z.title;
-        si.value = z.start;
-        di.value = z.due;
-        ta.value = z.description || "";
-      }
-    }));
-    const a = this.contentEl.createDiv({ cls: "modal-button-container" });
-    a.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).onclick = () => this.finish(null);
-    if (this.init && this.onDelete) a.createEl("button", { text: "\u062D\u0630\u0641", cls: "mod-warning" }).onclick = () => {
-      this.end = true;
-      this.done(null);
-      this.close();
-      this.onDelete?.();
+    this.modalEl.addClass("planning-modal", "planning-editor-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+    let z = {
+      area: this.init?.area || F,
+      title: this.init?.title || "",
+      start: this.init?.start || "",
+      due: this.init?.due || "",
+      status: this.init?.status || "todo",
+      description: this.init?.description || "",
+      tickId: this.init?.tickId,
+      projectId: this.init?.projectId
     };
-    a.createEl("button", { text: "\u0630\u062E\u06CC\u0631\u0647", cls: "mod-cta" }).onclick = () => {
-      if (!z.title || !z.area || !date(z.start) || !date(z.due) || z.due < z.start) return new import_obsidian.Notice("\u0639\u0646\u0648\u0627\u0646\u060C \u062D\u0648\u0632\u0647 \u0648 \u062A\u0627\u0631\u06CC\u062E \u0645\u0639\u062A\u0628\u0631 \u0648\u0627\u0631\u062F \u06A9\u0646.");
+    let customArea = "";
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    const headerTitleWrap = header.createDiv({ cls: "planning-modal-title-wrap" });
+    headerTitleWrap.createEl("h2", {
+      text: this.init ? "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0641\u0627\u0632" : "\u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u0627\u0632 \u062C\u062F\u06CC\u062F",
+      cls: "planning-modal-title"
+    });
+    if (this.init) {
+      const badge = headerTitleWrap.createSpan({ cls: "planning-modal-badge" });
+      badge.setText(`${icon(z.area)} ${z.area}`);
+      badge.style.setProperty("--badge-color", color(z.area));
+    }
+    const tickBtn = header.createEl("button", {
+      cls: "planning-btn-secondary planning-tick-btn",
+      text: "\u{1F504} \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0632 TickTick"
+    });
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    const form = body.createDiv({ cls: "planning-form" });
+    const titleGroup = form.createDiv({ cls: "planning-form-group" });
+    titleGroup.createEl("label", { text: "\u0639\u0646\u0648\u0627\u0646 \u0641\u0627\u0632 \u06CC\u0627 \u062A\u0633\u06A9", cls: "planning-form-label" });
+    const titleInput = titleGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input planning-input-lg",
+      placeholder: "\u0645\u062B\u0627\u0644: \u0633\u0637\u062D \u06F7: \u0632\u0646\u062F\u06AF\u06CC \u0628\u0647 \u0632\u0628\u0627\u0646 \u0622\u0644\u0645\u0627\u0646\u06CC"
+    });
+    titleInput.value = z.title;
+    titleInput.oninput = () => {
+      z.title = titleInput.value;
+    };
+    const areaRow = form.createDiv({ cls: "planning-form-row" });
+    const areaGroup = areaRow.createDiv({ cls: "planning-form-group" });
+    areaGroup.createEl("label", { text: "\u062D\u0648\u0632\u0647\u0654 \u067E\u0631\u0648\u0698\u0647", cls: "planning-form-label" });
+    const areaDropdown = new import_obsidian.DropdownComponent(areaGroup);
+    const as = this.p.areaNames();
+    as.forEach((a) => areaDropdown.addOption(a, a));
+    areaDropdown.addOption("__new__", "\uFF0B \u0633\u0627\u062E\u062A \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F");
+    areaDropdown.setValue(as.includes(z.area) ? z.area : "__new__");
+    areaDropdown.selectEl.addClass("planning-select");
+    const newAreaGroup = areaRow.createDiv({ cls: "planning-form-group planning-new-area-group" });
+    newAreaGroup.createEl("label", { text: "\u0646\u0627\u0645 \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F", cls: "planning-form-label" });
+    const newAreaInput = newAreaGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input",
+      placeholder: "\u0646\u0627\u0645 \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F..."
+    });
+    newAreaInput.oninput = () => {
+      customArea = newAreaInput.value.trim();
+      if (customArea) z.area = customArea;
+    };
+    const updateNewAreaVisibility = () => {
+      if (areaDropdown.getValue() === "__new__") {
+        newAreaGroup.removeClass("is-hidden");
+        areaRow.addClass("planning-form-row-2");
+      } else {
+        newAreaGroup.addClass("is-hidden");
+        areaRow.removeClass("planning-form-row-2");
+      }
+    };
+    updateNewAreaVisibility();
+    areaDropdown.onChange((val) => {
+      updateNewAreaVisibility();
+      if (val !== "__new__") {
+        z.area = val;
+      } else {
+        if (customArea) z.area = customArea;
+      }
+    });
+    const datesRow = form.createDiv({ cls: "planning-form-row planning-form-row-2" });
+    const startGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    startGroup.createEl("label", { text: "\u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639", cls: "planning-form-label" });
+    const startInput = startGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    startInput.value = z.start;
+    startInput.onchange = () => {
+      z.start = startInput.value;
+    };
+    const dueGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    dueGroup.createEl("label", { text: "\u062A\u0627\u0631\u06CC\u062E \u067E\u0627\u06CC\u0627\u0646", cls: "planning-form-label" });
+    const dueInput = dueGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    dueInput.value = z.due;
+    dueInput.onchange = () => {
+      z.due = dueInput.value;
+    };
+    const descSection = form.createDiv({ cls: "planning-form-group planning-desc-section" });
+    const descHeader = descSection.createDiv({ cls: "planning-desc-header" });
+    const descHeaderLeft = descHeader.createDiv({ cls: "planning-desc-header-info" });
+    descHeaderLeft.createEl("label", {
+      text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0645\u0633\u062A\u0646\u062F\u0627\u062A (\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u06A9\u0627\u0645\u0644 \u0627\u0632 Markdown)",
+      cls: "planning-form-label"
+    });
+    const tabsWrap = descHeader.createDiv({ cls: "planning-desc-tabs" });
+    const previewTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn",
+      text: "\u{1F441}\uFE0F \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634"
+    });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "planning-tab-btn",
+      text: "\u270F\uFE0F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646"
+    });
+    const descBody = descSection.createDiv({ cls: "planning-desc-container" });
+    const previewEl = descBody.createDiv({ cls: "planning-desc-preview" });
+    const descTextarea = descBody.createEl("textarea", {
+      cls: "planning-desc-textarea",
+      placeholder: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0627\u0647\u062F\u0627\u0641 \u0627\u06CC\u0646 \u0641\u0627\u0632 \u0631\u0627 \u0628\u0647 \u0632\u0628\u0627\u0646 \u0645\u0627\u0631\u06A9\u200C\u062F\u0627\u0648\u0646 \u0628\u0646\u0648\u06CC\u0633\u06CC\u062F...\n\u0645\u062B\u0627\u0644:\n## \u0647\u062F\u0641\n\u062A\u0648\u0636\u06CC\u062D \u0647\u062F\u0641...\n## \u0645\u0639\u06CC\u0627\u0631\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC\n- [ ] \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u06F1\n- [ ] \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u06F2"
+    });
+    descTextarea.value = z.description || "";
+    descTextarea.oninput = () => {
+      z.description = descTextarea.value;
+    };
+    const renderPreview = async () => {
+      previewEl.empty();
+      const content = z.description?.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u0627\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0646\u0648\u0634\u062A\u0646\u060C \u0631\u0648\u06CC \u062F\u06A9\u0645\u0647 \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
+      await import_obsidian.MarkdownRenderer.render(this.app, content, previewEl, "", this.p);
+    };
+    const setTab = (tab) => {
+      if (tab === "preview") {
+        previewTabBtn.addClass("is-active");
+        editTabBtn.removeClass("is-active");
+        previewEl.removeClass("is-hidden");
+        descTextarea.addClass("is-hidden");
+        z.description = descTextarea.value;
+        void renderPreview();
+      } else {
+        editTabBtn.addClass("is-active");
+        previewTabBtn.removeClass("is-active");
+        previewEl.addClass("is-hidden");
+        descTextarea.removeClass("is-hidden");
+        descTextarea.focus();
+      }
+    };
+    previewTabBtn.onclick = (e) => {
+      e.preventDefault();
+      setTab("preview");
+    };
+    editTabBtn.onclick = (e) => {
+      e.preventDefault();
+      setTab("edit");
+    };
+    const initialTab = z.description?.trim() ? "preview" : "edit";
+    setTab(initialTab);
+    tickBtn.onclick = async () => {
+      const picked = await new Picker(this.app, this.p).wait();
+      if (picked) {
+        z = { ...z, ...picked, area: z.area, tickId: picked.id };
+        titleInput.value = z.title;
+        startInput.value = z.start;
+        dueInput.value = z.due;
+        descTextarea.value = z.description || "";
+        areaDropdown.setValue(as.includes(z.area) ? z.area : "__new__");
+        updateNewAreaVisibility();
+        void renderPreview();
+      }
+    };
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerLeft = footer.createDiv({ cls: "planning-footer-left" });
+    if (this.init && this.onDelete) {
+      const delBtn = footerLeft.createEl("button", {
+        cls: "planning-btn-danger",
+        text: "\u{1F5D1}\uFE0F \u062D\u0630\u0641 \u0641\u0627\u0632"
+      });
+      delBtn.onclick = () => {
+        this.end = true;
+        this.done(null);
+        this.close();
+        this.onDelete?.();
+      };
+    }
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const cancelBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: "\u0627\u0646\u0635\u0631\u0627\u0641"
+    });
+    cancelBtn.onclick = () => this.finish(null);
+    const saveBtn = footerRight.createEl("button", {
+      cls: "planning-btn-primary mod-cta",
+      text: "\u0630\u062E\u06CC\u0631\u0647 \u0641\u0627\u0632"
+    });
+    saveBtn.onclick = () => {
+      z.description = descTextarea.value;
+      if (!z.title.trim()) return new import_obsidian.Notice("\u0639\u0646\u0648\u0627\u0646 \u0641\u0627\u0632 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
+      if (!z.area.trim()) return new import_obsidian.Notice("\u062D\u0648\u0632\u0647 \u0641\u0627\u0632 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646.");
+      if (!date(z.start) || !date(z.due) || z.due < z.start) {
+        return new import_obsidian.Notice("\u062A\u0627\u0631\u06CC\u062E\u200C\u0647\u0627\u06CC \u0645\u0639\u062A\u0628\u0631 \u0648\u0627\u0631\u062F \u06A9\u0646 (\u067E\u0627\u06CC\u0627\u0646 \u0646\u0628\u0627\u06CC\u062F \u0642\u0628\u0644 \u0627\u0632 \u0634\u0631\u0648\u0639 \u0628\u0627\u0634\u062F).");
+      }
       this.finish(z);
     };
   }
@@ -529,44 +745,126 @@ var RoutineEditor = class extends import_obsidian.Modal {
     }
   }
   onOpen() {
+    this.modalEl.addClass("planning-modal", "planning-routine-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
     const original = this.initialArea && this.barId ? this.p.settings.routineBars[this.initialArea]?.find((bar) => bar.id === this.barId) : void 0;
-    let selected = this.initialArea || R[0], custom = "", title = original?.title || "", start = original?.start || "", due = original?.due || "";
-    this.contentEl.createEl("h2", { text: original ? "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u0648\u0627\u0631 \u062D\u0648\u0632\u0647" : "\u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0648\u0627\u0631 \u062D\u0648\u0632\u0647" });
-    new import_obsidian.Setting(this.contentEl).setName("\u062D\u0648\u0632\u0647").addDropdown((i) => {
-      const names = this.p.areaNames();
-      names.forEach((name) => i.addOption(name, name));
-      i.addOption("__new__", "\uFF0B \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F");
-      i.setValue(names.includes(selected) ? selected : "__new__");
-      i.onChange((value) => {
-        selected = value === "__new__" ? custom : value;
-      });
+    let selected = this.initialArea || R[0];
+    let customArea = "";
+    let title = original?.title || "";
+    let start = original?.start || "";
+    let due = original?.due || "";
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    header.createDiv({ cls: "planning-modal-title-wrap" }).createEl("h2", {
+      text: original ? "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u0648\u0627\u0631 \u062D\u0648\u0632\u0647" : "\u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0648\u0627\u0631 \u062D\u0648\u0632\u0647",
+      cls: "planning-modal-title"
     });
-    new import_obsidian.Setting(this.contentEl).setName("\u0646\u0627\u0645 \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F").setDesc("\u0646\u0648\u0627\u0631 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0648\u0632\u0647 \u0628\u0647 \u0647\u0645\u0647\u0654 \u0641\u0635\u0644\u200C\u0647\u0627 \u0627\u0636\u0627\u0641\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((i) => i.onChange((value) => {
-      custom = value.trim();
-      if (custom) selected = custom;
-    }));
-    new import_obsidian.Setting(this.contentEl).setName("\u0639\u0646\u0648\u0627\u0646 \u0646\u0648\u0627\u0631").setDesc("\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC\u061B \u0628\u0631\u0627\u06CC \u062A\u0634\u062E\u06CC\u0635 \u0646\u0648\u0627\u0631\u0647\u0627\u06CC \u06CC\u06A9 \u062D\u0648\u0632\u0647 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((i) => i.setValue(title).onChange((value) => title = value.trim()));
-    new import_obsidian.Setting(this.contentEl).setName("\u0634\u0631\u0648\u0639 \u0646\u0648\u0627\u0631").addText((i) => {
-      i.inputEl.type = "date";
-      i.setValue(start).onChange((value) => start = value);
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body" });
+    const form = body.createDiv({ cls: "planning-form" });
+    const areaRow = form.createDiv({ cls: "planning-form-row" });
+    const areaGroup = areaRow.createDiv({ cls: "planning-form-group" });
+    areaGroup.createEl("label", { text: "\u062D\u0648\u0632\u0647\u0654 \u067E\u0631\u0648\u0698\u0647", cls: "planning-form-label" });
+    const areaDropdown = new import_obsidian.DropdownComponent(areaGroup);
+    const names = this.p.areaNames();
+    names.forEach((name) => areaDropdown.addOption(name, name));
+    areaDropdown.addOption("__new__", "\uFF0B \u0633\u0627\u062E\u062A \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F");
+    areaDropdown.setValue(names.includes(selected) ? selected : "__new__");
+    areaDropdown.selectEl.addClass("planning-select");
+    const newAreaGroup = areaRow.createDiv({ cls: "planning-form-group planning-new-area-group" });
+    newAreaGroup.createEl("label", { text: "\u0646\u0627\u0645 \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F", cls: "planning-form-label" });
+    const newAreaInput = newAreaGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input",
+      placeholder: "\u0646\u0627\u0645 \u062D\u0648\u0632\u0647\u0654 \u062C\u062F\u06CC\u062F..."
     });
-    new import_obsidian.Setting(this.contentEl).setName("\u067E\u0627\u06CC\u0627\u0646 \u0646\u0648\u0627\u0631").addText((i) => {
-      i.inputEl.type = "date";
-      i.setValue(due).onChange((value) => due = value);
-    });
-    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
-    actions.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).onclick = () => this.finish(null);
-    if (original) actions.createEl("button", { text: "\u062D\u0630\u0641 \u0646\u0648\u0627\u0631", cls: "mod-warning" }).onclick = async () => {
-      this.p.settings.routineBars[this.initialArea] = this.p.settings.routineBars[this.initialArea].filter((bar) => bar.id !== original.id);
-      await this.p.save();
-      this.refresh?.();
-      this.end = true;
-      this.done(null);
-      this.close();
+    newAreaInput.oninput = () => {
+      customArea = newAreaInput.value.trim();
+      if (customArea) selected = customArea;
     };
-    actions.createEl("button", { text: "\u0630\u062E\u06CC\u0631\u0647", cls: "mod-cta" }).onclick = () => {
-      if (!selected || !date(start) || !date(due) || due < start) return new import_obsidian.Notice("\u062D\u0648\u0632\u0647 \u0648 \u0628\u0627\u0632\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0645\u0639\u062A\u0628\u0631 \u0648\u0627\u0631\u062F \u06A9\u0646.");
-      this.finish({ id: original?.id || crypto.randomUUID(), area: selected, title, start, due });
+    const updateVisibility = () => {
+      if (areaDropdown.getValue() === "__new__") {
+        newAreaGroup.removeClass("is-hidden");
+        areaRow.addClass("planning-form-row-2");
+      } else {
+        newAreaGroup.addClass("is-hidden");
+        areaRow.removeClass("planning-form-row-2");
+      }
+    };
+    updateVisibility();
+    areaDropdown.onChange((val) => {
+      updateVisibility();
+      selected = val === "__new__" ? customArea : val;
+    });
+    const titleGroup = form.createDiv({ cls: "planning-form-group" });
+    titleGroup.createEl("label", { text: "\u0639\u0646\u0648\u0627\u0646 \u0646\u0648\u0627\u0631 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)", cls: "planning-form-label" });
+    const titleInput = titleGroup.createEl("input", {
+      type: "text",
+      cls: "planning-input",
+      placeholder: "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC\u061B \u0628\u0631\u0627\u06CC \u062A\u0634\u062E\u06CC\u0635 \u0646\u0648\u0627\u0631\u0647\u0627\u06CC \u06CC\u06A9 \u062D\u0648\u0632\u0647 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."
+    });
+    titleInput.value = title;
+    titleInput.oninput = () => {
+      title = titleInput.value.trim();
+    };
+    const datesRow = form.createDiv({ cls: "planning-form-row planning-form-row-2" });
+    const startGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    startGroup.createEl("label", { text: "\u0634\u0631\u0648\u0639 \u0646\u0648\u0627\u0631", cls: "planning-form-label" });
+    const startInput = startGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    startInput.value = start;
+    startInput.onchange = () => {
+      start = startInput.value;
+    };
+    const dueGroup = datesRow.createDiv({ cls: "planning-form-group" });
+    dueGroup.createEl("label", { text: "\u067E\u0627\u06CC\u0627\u0646 \u0646\u0648\u0627\u0631", cls: "planning-form-label" });
+    const dueInput = dueGroup.createEl("input", {
+      type: "date",
+      cls: "planning-input planning-date-input"
+    });
+    dueInput.value = due;
+    dueInput.onchange = () => {
+      due = dueInput.value;
+    };
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerLeft = footer.createDiv({ cls: "planning-footer-left" });
+    if (original) {
+      const delBtn = footerLeft.createEl("button", {
+        cls: "planning-btn-danger",
+        text: "\u{1F5D1}\uFE0F \u062D\u0630\u0641 \u0646\u0648\u0627\u0631"
+      });
+      delBtn.onclick = async () => {
+        if (!confirm("\u0622\u06CC\u0627 \u0627\u0632 \u062D\u0630\u0641 \u0627\u06CC\u0646 \u0646\u0648\u0627\u0631 \u0627\u0637\u0645\u06CC\u0646\u0627\u0646 \u062F\u0627\u0631\u06CC\u062F\u061F")) return;
+        this.p.settings.routineBars[this.initialArea] = this.p.settings.routineBars[this.initialArea].filter((bar) => bar.id !== original.id);
+        await this.p.save();
+        this.refresh?.();
+        this.end = true;
+        this.done(null);
+        this.close();
+      };
+    }
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const cancelBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: "\u0627\u0646\u0635\u0631\u0627\u0641"
+    });
+    cancelBtn.onclick = () => this.finish(null);
+    const saveBtn = footerRight.createEl("button", {
+      cls: "planning-btn-primary mod-cta",
+      text: "\u0630\u062E\u06CC\u0631\u0647 \u0646\u0648\u0627\u0631"
+    });
+    saveBtn.onclick = () => {
+      if (!selected || !date(start) || !date(due) || due < start) {
+        return new import_obsidian.Notice("\u062D\u0648\u0632\u0647 \u0648 \u0628\u0627\u0632\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0645\u0639\u062A\u0628\u0631 \u0648\u0627\u0631\u062F \u06A9\u0646.");
+      }
+      this.finish({
+        id: original?.id || crypto.randomUUID(),
+        area: selected,
+        title,
+        start,
+        due
+      });
     };
   }
   onClose() {
@@ -594,8 +892,15 @@ var Picker = class extends import_obsidian.Modal {
     }
   }
   async onOpen() {
-    this.contentEl.createEl("h2", { text: "\u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0633\u06A9 TickTick" });
-    this.contentEl.addClass("planning-picker-modal");
+    this.modalEl.addClass("planning-modal", "planning-picker-modal");
+    this.contentEl.empty();
+    this.contentEl.addClass("planning-modal-inner");
+    const header = this.contentEl.createDiv({ cls: "planning-modal-header" });
+    header.createDiv({ cls: "planning-modal-title-wrap" }).createEl("h2", {
+      text: "\u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0633\u06A9 \u0627\u0632 TickTick",
+      cls: "planning-modal-title"
+    });
+    const body = this.contentEl.createDiv({ cls: "planning-modal-body planning-picker-body" });
     try {
       const tasks = await this.p.pick();
       const byProject = tasks.reduce((acc, t) => {
@@ -604,7 +909,7 @@ var Picker = class extends import_obsidian.Modal {
         acc[pName].push(t);
         return acc;
       }, {});
-      const container = this.contentEl.createDiv({ cls: "planning-picker-container" });
+      const container = body.createDiv({ cls: "planning-picker-container" });
       for (const [pName, pTasks] of Object.entries(byProject)) {
         const group = container.createDiv({ cls: "planning-picker-group" });
         group.createEl("h3", { text: pName, cls: "planning-picker-group-title" });
@@ -612,13 +917,25 @@ var Picker = class extends import_obsidian.Modal {
         for (const t of pTasks) {
           const btn = list.createEl("button", { cls: "planning-picker-item" });
           btn.createDiv({ cls: "planning-picker-item-title", text: t.title });
-          if (t.start || t.due) btn.createDiv({ cls: "planning-picker-item-date", text: `${fmt(t.start)} \u2014 ${fmt(t.due)}` });
+          if (t.start || t.due) {
+            btn.createDiv({ cls: "planning-picker-item-date", text: `${fmt(t.start)} \u2014 ${fmt(t.due)}` });
+          }
           btn.onclick = () => this.finish(t);
         }
       }
     } catch (e) {
-      this.contentEl.createEl("p", { text: e instanceof Error ? e.message : "\u062E\u0637\u0627" });
+      body.createEl("p", {
+        cls: "planning-error-text",
+        text: e instanceof Error ? e.message : "\u062E\u0637\u0627 \u062F\u0631 \u0627\u062A\u0635\u0627\u0644 \u0628\u0647 TickTick"
+      });
     }
+    const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
+    const footerRight = footer.createDiv({ cls: "planning-footer-right" });
+    const closeBtn = footerRight.createEl("button", {
+      cls: "planning-btn-secondary",
+      text: "\u0628\u0633\u062A\u0646"
+    });
+    closeBtn.onclick = () => this.finish(null);
   }
   onClose() {
     this.contentEl.empty();
