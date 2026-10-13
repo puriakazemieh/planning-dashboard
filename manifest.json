@@ -1,0 +1,9 @@
+{
+  "id": "planning-dashboard",
+  "name": "Planning Dashboard",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Local, editable planning timelines and project phases.",
+  "author": "Puria",
+  "isDesktopOnly": false
+}

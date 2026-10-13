@@ -1,0 +1,345 @@
+/* Reset Obsidian's default code block styling */
+.block-language-planning-overview,
+.block-language-planning-season-map,
+.block-language-planning-nearest-phases,
+.cm-preview-code-block:has(.block-language-planning-overview),
+.cm-preview-code-block:has(.block-language-planning-season-map),
+.cm-preview-code-block:has(.block-language-planning-nearest-phases),
+.cm-embed-block:has(.block-language-planning-overview),
+.cm-embed-block:has(.block-language-planning-season-map),
+.cm-embed-block:has(.block-language-planning-nearest-phases),
+.markdown-rendered pre:has(> .block-language-planning-overview),
+.markdown-rendered pre:has(> .block-language-planning-season-map),
+.markdown-rendered pre:has(> .block-language-planning-nearest-phases) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.planning-overview, .planning-shell { 
+  display: flex; 
+  flex-direction: column; 
+  margin: 1.25rem 0; 
+  direction: rtl; 
+}
+
+/* Toolbar */
+.planning-toolbar { 
+  display: flex; 
+  flex-wrap: wrap;
+  align-items: center; 
+  justify-content: space-between;
+  gap: 0.75rem; 
+  direction: rtl; 
+  margin-bottom: 1rem; 
+}
+
+.planning-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.planning-toolbar button { 
+  margin: 0; 
+  border-radius: 999px; 
+  padding: 0.35rem 0.85rem;
+  font-weight: 500;
+  font-size: 0.82rem;
+  transition: all 200ms ease;
+}
+
+.planning-connected { 
+  color: var(--text-success); 
+  font-size: 0.8rem; 
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.planning-connected::before {
+  content: "";
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--text-success);
+  border-radius: 50%;
+  box-shadow: 0 0 4px var(--text-success);
+}
+
+/* Timeline Card */
+.planning-season { 
+  position: relative; 
+  overflow: hidden; 
+  padding: 1.25rem; 
+  background: linear-gradient(145deg,
+      color-mix(in srgb, var(--background-secondary) 96%, var(--interactive-accent)),
+      color-mix(in srgb, var(--background-secondary) 88%, var(--interactive-accent)));
+  border: 1px solid transparent !important;
+  border-radius: 0.95rem;
+  box-shadow:
+      0 2px 5px color-mix(in srgb, var(--background-primary) 45%, transparent),
+      inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  direction: rtl;
+  margin-bottom: 1.25rem;
+}
+
+.planning-season.is-empty {
+  padding: 0.85rem 1.25rem;
+  opacity: 0.75;
+}
+
+.planning-empty-season {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.planning-season h3 { position: relative; z-index: 1; margin: 0 0 1.2rem; font-size: 1.15rem; color: var(--text-normal); font-weight: 700; border-bottom: none; }
+.planning-season-body { display: flex; gap: 1rem; position: relative; z-index: 1; }
+.planning-labels { display: flex; flex: 0 0 7rem; flex-direction: column; }
+.planning-label-spacer, .planning-months { height: 1.8rem; margin-bottom: .35rem; }
+.planning-area:hover { color: var(--text-normal); background-color: transparent !important; box-shadow: none !important; transform: translateX(-2px); }
+.planning-area { appearance:none; background-color:transparent !important; border-top:none !important; border-left:none !important; border-right:none !important; box-shadow:none !important; border-radius:0 !important; padding:0 !important; cursor:pointer; width:100%; text-align:right; font:inherit; transition: transform 150ms ease, color 150ms ease; display: flex; align-items: center; height: 2.2rem; color: var(--text-muted); font-size: .82rem; font-weight: 600; border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent); }
+.planning-calendar { flex: 1; min-width: 0; overflow-x: hidden; }
+.planning-months { display: flex; overflow: hidden; background: color-mix(in srgb, var(--background-primary) 40%, transparent); border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent); border-radius: .5rem; }
+.planning-month { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 0 .25rem; overflow: hidden; color: var(--text-muted); font-size: .72rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; border-left: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent); }
+.planning-month:first-child { border-left: none; }
+.planning-lanes { background-image: repeating-linear-gradient(to left, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--background-modifier-border) 30%, transparent) calc(25% - 1px), color-mix(in srgb, var(--background-modifier-border) 30%, transparent) 25%); }
+.planning-lane { position: relative; height: 2.2rem; border-bottom: 1px dashed color-mix(in srgb, var(--background-modifier-border) 45%, transparent); }
+.planning-routine-line { position: absolute; top: 1rem; min-width: .7rem; height: .22rem; background: var(--planning-color, var(--interactive-accent)); border-radius: 999px; box-shadow: 0 0 .45rem color-mix(in srgb, var(--planning-color, var(--interactive-accent)) 35%, transparent); }
+.planning-routine-line::before, .planning-routine-line::after { content: ""; position: absolute; top: 50%; width: .46rem; height: .46rem; background: inherit; border-radius: 50%; transform: translateY(-50%); }
+.planning-routine-line::before { right: 0; } .planning-routine-line::after { left: 0; }
+.planning-routine-line::before, .planning-routine-line::after { display: none; }
+.planning-line-handle { position:absolute; top:50%; width:.7rem; height:.7rem; background:inherit; border:2px solid var(--background-primary); border-radius:50%; box-shadow:0 0 0 1px color-mix(in srgb, var(--planning-color, var(--interactive-accent)) 65%, transparent); transform:translateY(-50%); cursor:ew-resize; touch-action:none; }
+.planning-line-start { right:-.15rem; } .planning-line-end { left:-.15rem; }
+.planning-line-handle:hover, .planning-line-handle:active { transform:translateY(-50%) scale(1.25); }
+.planning-task-bar { position: absolute; top: .25rem; height: 1.7rem; padding: 0 .5rem; overflow: hidden; color: var(--text-normal); font-size: .72rem; font-weight: 600; line-height: 1.7rem; text-align: right; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, #8b5cf6 18%, var(--background-primary)); border: 1px solid color-mix(in srgb, #8b5cf6 62%, transparent); border-radius: .4rem; transition: transform 200ms ease; cursor: pointer; }
+.planning-task-bar:hover { transform: translateY(-1px); box-shadow: 0 4px 12px color-mix(in srgb, #8b5cf6 20%, transparent); border-color: #8b5cf6; }
+ 
+
+/* Grid and Cards */
+.planning-phase-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.85rem; direction: rtl; }
+
+.planning-phase-card { 
+  --planning-tone: var(--interactive-accent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.2rem;
+  background: linear-gradient(145deg,
+      color-mix(in srgb, var(--background-secondary) 96%, var(--interactive-accent)),
+      color-mix(in srgb, var(--background-secondary) 88%, var(--interactive-accent)));
+  border: 1px solid transparent !important;
+  border-radius: 0.95rem;
+  box-shadow:
+      0 2px 5px color-mix(in srgb, var(--background-primary) 45%, transparent),
+      inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
+  overflow: hidden;
+}
+
+.planning-phase-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--interactive-accent) 12%, transparent),
+    0 2px 6px color-mix(in srgb, var(--background-primary) 35%, transparent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent) !important;
+}
+
+.planning-phase-card::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle at top right, var(--planning-tone), transparent 50%);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 300ms ease;
+}
+
+.planning-phase-card:hover::after {
+  opacity: 0.25;
+}
+
+.planning-phase-card.language { --planning-tone: #f59e0b; }
+.planning-phase-card.personal { --planning-tone: #10b981; }
+.planning-phase-card.kotlin { --planning-tone: #3b82f6; }
+.planning-phase-card.fintrack { --planning-tone: #8b5cf6; }
+
+.planning-phase-card-title:hover { color: var(--text-normal); background-color: transparent !important; box-shadow: none !important; transform: translateY(-1px); }
+.planning-phase-card-title { appearance:none; background-color:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important; border-radius:0 !important; cursor:pointer; width:100%; text-align:right; font:inherit; transition: transform 150ms ease, color 150ms ease; 
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0 0 1.1rem; 
+  font-size: 1.1rem; 
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-normal);
+  border-bottom: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Restyled Item Rows */
+.planning-phase-row { 
+  display: flex; 
+  gap: 0.45rem; 
+  align-items: center; /* Center vertically */
+  margin-bottom: 0.65rem; 
+  position: relative; 
+  z-index: 1; 
+  background: color-mix(in srgb, var(--planning-tone) 6%, var(--background-primary)); 
+  border: 1px solid color-mix(in srgb, var(--planning-tone) 20%, transparent); 
+  border-radius: 0.75rem; 
+  padding: 0.45rem;
+  transition: all 180ms ease;
+  height: auto !important;
+  min-height: max-content !important;
+}
+.planning-phase-row:last-child { margin-bottom: 0; }
+
+.planning-phase-row:hover {
+  background: color-mix(in srgb, var(--planning-tone) 12%, var(--background-primary)); 
+  border-color: color-mix(in srgb, var(--planning-tone) 40%, transparent); 
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--planning-tone) 8%, transparent);
+}
+
+/* The actual clickable phase item (allows multiline wrap) */
+.planning-phase-item { 
+  margin: 0; 
+  flex: 1; 
+  padding: 0.35rem 0.5rem !important; 
+  color: var(--text-normal) !important; 
+  font: inherit; 
+  font-size: 0.88rem; 
+  font-weight: 600; 
+  text-align: right; 
+  cursor: pointer; 
+  background: transparent !important; 
+  border: none !important; 
+  box-shadow: none !important;
+  min-width: 0;
+  white-space: normal !important; /* Allow wrapping */
+  line-height: 1.4;
+  height: auto !important;
+  min-height: max-content !important;
+  display: block !important;
+}
+
+/* Actions in a single horizontal line */
+.planning-row-actions { 
+  display: flex; 
+  flex-direction: row; 
+  gap: 0.25rem; 
+  margin-left: 0.2rem;
+  flex-shrink: 0;
+  align-items: center; /* Center the buttons vertically */
+}
+
+.planning-row-actions button { 
+  font-size: 0.72rem; 
+  font-weight: 500;
+  padding: 0.3rem 0.65rem; 
+  border-radius: 999px; 
+  background: color-mix(in srgb, var(--background-secondary-alt) 80%, transparent); 
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent); 
+  color: var(--text-muted);
+  box-shadow: none;
+  transition: all 150ms ease; 
+  height: max-content;
+}
+
+.planning-row-actions button:hover { 
+  background: var(--background-primary); 
+  border-color: var(--interactive-accent); 
+  color: var(--interactive-accent); 
+}
+
+.planning-row-actions button.mod-warning:hover { 
+  border-color: var(--color-red); 
+  color: var(--color-red); 
+}
+
+.planning-manager-row { display:flex; align-items:center; gap:.5rem; margin:.45rem 0; }
+.planning-manager-row span { flex:1; }
+
+.planning-empty { padding: 1.5rem 0; color: var(--text-muted); font-size: 0.88rem; text-align: center; font-style: italic; opacity: 0.7; }
+.planning-description { max-height:68vh; min-width:min(42rem,82vw); padding:1.2rem 1.35rem; overflow:auto; direction:rtl; color:var(--text-normal); font-size:1rem; background:var(--background-primary); border:1px solid var(--interactive-accent); border-radius:.75rem; line-height:2; box-shadow:0 8px 28px color-mix(in srgb, var(--background-primary) 45%, transparent); }
+.planning-description h1,.planning-description h2,.planning-description h3 { margin-top:1.25rem; color:var(--text-normal); }
+
+@media (max-width: 650px) { 
+  .planning-season-body { flex-direction: column; gap: .45rem; } 
+  .planning-labels { display: none; } 
+  .planning-phase-grid { grid-template-columns: 1fr !important; } 
+}
+
+/* Picker Modal */
+.planning-picker-modal .modal-content {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.planning-picker-container {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.planning-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.planning-picker-group-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  color: var(--interactive-accent);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.25rem;
+}
+.planning-picker-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+.planning-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: right;
+  padding: 0.75rem;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.planning-picker-item:hover {
+  background: var(--background-primary);
+  border-color: var(--interactive-accent);
+  transform: translateY(-1px);
+}
+.planning-picker-item-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-normal);
+  margin-bottom: 0.25rem;
+}
+.planning-picker-item-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

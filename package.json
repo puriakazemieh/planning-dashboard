@@ -1,0 +1,17 @@
+{
+  "name": "@puria/planning-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "esbuild src/main.ts --bundle --platform=browser --target=es2022 --external:obsidian --format=cjs --outfile=main.js",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "latest",
+    "typescript": "^5.8.0"
+  }
+}
