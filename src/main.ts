@@ -1,4 +1,4 @@
-import { App, DropdownComponent, MarkdownRenderer, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl } from "obsidian";
+import { App, Component, DropdownComponent, MarkdownRenderer, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl } from "obsidian";
 type Task={id:string;area:string;title:string;start:string;due:string;status:string;description?:string;tickId?:string;projectId?:string};
 type AreaDisplayMode="routine"|"tasks"|"both";
 type RoutineBar={id:string;title:string;start:string;due:string};
@@ -25,13 +25,16 @@ export default class Planning extends Plugin { settings:Settings=D; timer:number
  async edit(t:Task|null,r:()=>void){const v=await new Editor(this.app,this,t,t?()=>this.del(t,r):undefined).wait();if(!v)return;this.settings.deletedAreas=this.settings.deletedAreas.filter(area=>area!==v.area);t?Object.assign(t,v):this.settings.tasks.push({...v,id:crypto.randomUUID()});await this.save();r()} async editRoutine(area:string|null,r:()=>void,barId?:string){const v=await new RoutineEditor(this.app,this,area,barId,r).wait();if(!v)return;this.settings.deletedAreas=this.settings.deletedAreas.filter(area=>area!==v.area);const existingArea=Object.keys(this.settings.routineBars).find(key=>this.settings.routineBars[key].some(bar=>bar.id===v.id));if(existingArea&&existingArea!==v.area)this.settings.routineBars[existingArea]=this.settings.routineBars[existingArea].filter(bar=>bar.id!==v.id);const bars=this.settings.routineBars[v.area]??=[];const current=bars.find(bar=>bar.id===v.id);current?Object.assign(current,v):bars.push(v);this.settings.routineBars[v.area]=bars;await this.save();r()} async del(t:Task,r:()=>void){if(!confirm(`«${t.title}» حذف شود؟`))return;this.settings.tasks=this.settings.tasks.filter(x=>x.id!==t.id);await this.save();r()}
  async req(p:string):Promise<unknown>{if(!this.settings.tick.enabled||!this.settings.tick.token)throw Error("اتصال TickTick را در تنظیمات فعال کن.");const x=await requestUrl({url:`https://api.ticktick.com/open/v1/${p}`,headers:{Authorization:`Bearer ${this.settings.tick.token}`}});if(x.status<200||x.status>299)throw Error("خطای اتصال TickTick");return x.json as unknown} async pick():Promise<TickTickTaskSelection[]>{const rawProjects=await this.req("project");if(!Array.isArray(rawProjects))return[];const projects:TickTickProject[]=rawProjects.filter(isRecord).map(project=>({id:String(project.id??""),name:String(project.name??"بدون پروژه")})).filter(project=>project.id);const rawData=await Promise.all(projects.map(project=>this.req(`project/${project.id}/data`)));return rawData.flatMap((data,index)=>{if(!isRecord(data))return[];const tasks=(data as TickTickProjectData).tasks;if(!Array.isArray(tasks))return[];return tasks.filter(isRecord).map(task=>{const value=task as TickTickTask;return{id:String(value.id??crypto.randomUUID()),projectId:String(value.projectId??projects[index].id),projectName:projects[index].name,title:String(value.title??"بدون عنوان"),start:key(value.startDate)||key(value.dueDate),due:key(value.dueDate)||key(value.startDate),status:value.status===2?"done":"todo",description:String(value.desc??value.content??"")}})})} async sync(n:boolean){try{const all=await this.pick();for(const t of this.settings.tasks.filter(x=>x.tickId)){const a=all.find(x=>x.id===t.tickId);if(a)Object.assign(t,{...a,tickId:a.id})}await this.saveData(this.settings);if(n)new Notice("زمان‌بندی‌های TickTick به‌روز شد.")}catch(e){if(n)new Notice(e instanceof Error?e.message:"خطای همگام‌سازی")}}
 }
-class Tab extends PluginSettingTab{constructor(a:App,private p:Planning){super(a,p)}display(){const c=this.containerEl;c.empty();new Setting(c).setName("Planning Dashboard").setHeading();new Setting(c).setName("اتصال TickTick").setDesc("برای انتخاب تسک و همگام‌سازی زمان‌بندی").addToggle(x=>x.setValue(this.p.settings.tick.enabled).onChange(async v=>{this.p.settings.tick.enabled=v;await this.p.save();this.display()}));new Setting(c).setName("API Token").addText(x=>{x.inputEl.type="password";x.setValue(this.p.settings.tick.token).onChange(async v=>{this.p.settings.tick.token=v.trim();await this.p.save()})});new Setting(c).setName("همگام‌سازی خودکار").addToggle(x=>x.setValue(this.p.settings.tick.auto).onChange(async v=>{this.p.settings.tick.auto=v;await this.p.save()}));new Setting(c).setName("فاصله (دقیقه)").addText(x=>x.setValue(String(this.p.settings.tick.minutes)).onChange(async v=>{this.p.settings.tick.minutes=Math.max(5,+v||30);await this.p.save()}));new Setting(c).setName("همگام‌سازی الآن").addButton(b=>b.setButtonText("همگام‌سازی").onClick(()=>void this.p.sync(true)))}}
+class Tab extends PluginSettingTab{constructor(a:App,private p:Planning){super(a,p)}display(){const c=this.containerEl;c.empty();new Setting(c).setName("تنظیمات اتصال و همگام‌سازی").setHeading();new Setting(c).setName("اتصال TickTick").setDesc("برای انتخاب تسک و همگام‌سازی زمان‌بندی").addToggle(x=>x.setValue(this.p.settings.tick.enabled).onChange(async v=>{this.p.settings.tick.enabled=v;await this.p.save();this.display()}));new Setting(c).setName("API Token").addText(x=>{x.inputEl.type="password";x.setValue(this.p.settings.tick.token).onChange(async v=>{this.p.settings.tick.token=v.trim();await this.p.save()})});new Setting(c).setName("همگام‌سازی خودکار").addToggle(x=>x.setValue(this.p.settings.tick.auto).onChange(async v=>{this.p.settings.tick.auto=v;await this.p.save()}));new Setting(c).setName("فاصله (دقیقه)").addText(x=>x.setValue(String(this.p.settings.tick.minutes)).onChange(async v=>{this.p.settings.tick.minutes=Math.max(5,+v||30);await this.p.save()}));new Setting(c).setName("همگام‌سازی الآن").addButton(b=>b.setButtonText("همگام‌سازی").onClick(()=>void this.p.sync(true)))}}
 
 class AreaModal extends Modal {
+  private renderComponent = new Component();
+
   constructor(a: App, private p: Planning, private area: string, private r: () => void) {
     super(a);
   }
   async onOpen() {
+    this.renderComponent.load();
     this.modalEl.addClass("planning-modal", "planning-area-modal");
     this.contentEl.empty();
     this.contentEl.addClass("planning-modal-inner");
@@ -90,7 +93,7 @@ class AreaModal extends Modal {
     const renderPreview = async () => {
       previewEl.empty();
       const textToRender = currentText.trim() || "*هنوز توضیحی برای این حوزه ثبت نشده است. برای افزودن راهنما و یادداشت‌ها، روی «ویرایش متن» در بالا کلیک کنید.*";
-      await MarkdownRenderer.render(this.app, textToRender, previewEl, "", this.p);
+      await MarkdownRenderer.render(this.app, textToRender, previewEl, "", this.renderComponent);
     };
     void renderPreview();
 
@@ -181,9 +184,15 @@ class AreaModal extends Modal {
       updateViewMode(false);
     };
   }
+
+  onClose() {
+    this.renderComponent.unload();
+    this.contentEl.empty();
+  }
 }
 
 class Editor extends Modal {
+  private renderComponent = new Component();
   done!: (v: Omit<Task, "id"> | null) => void;
   res = new Promise<Omit<Task, "id"> | null>(r => this.done = r);
   end = false;
@@ -201,6 +210,7 @@ class Editor extends Modal {
   }
 
   onOpen() {
+    this.renderComponent.load();
     this.modalEl.addClass("planning-modal", "planning-editor-modal");
     this.contentEl.empty();
     this.contentEl.addClass("planning-modal-inner");
@@ -344,7 +354,7 @@ class Editor extends Modal {
     const renderPreview = async () => {
       previewEl.empty();
       const content = z.description?.trim() || "*هنوز توضیحی برای این فاز ثبت نشده است. برای نوشتن، روی دکمه «ویرایش متن» در بالا کلیک کنید.*";
-      await MarkdownRenderer.render(this.app, content, previewEl, "", this.p);
+      await MarkdownRenderer.render(this.app, content, previewEl, "", this.renderComponent);
     };
 
     const setTab = (tab: "preview" | "edit") => {
@@ -425,6 +435,7 @@ class Editor extends Modal {
   }
 
   onClose() {
+    this.renderComponent.unload();
     this.contentEl.empty();
     if (!this.end) this.finish(null);
   }

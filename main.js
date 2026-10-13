@@ -331,7 +331,7 @@ var Tab = class extends import_obsidian.PluginSettingTab {
   display() {
     const c = this.containerEl;
     c.empty();
-    new import_obsidian.Setting(c).setName("Planning Dashboard").setHeading();
+    new import_obsidian.Setting(c).setName("\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u062A\u0635\u0627\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC").setHeading();
     new import_obsidian.Setting(c).setName("\u0627\u062A\u0635\u0627\u0644 TickTick").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0633\u06A9 \u0648 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC").addToggle((x) => x.setValue(this.p.settings.tick.enabled).onChange(async (v) => {
       this.p.settings.tick.enabled = v;
       await this.p.save();
@@ -362,7 +362,9 @@ var AreaModal = class extends import_obsidian.Modal {
     this.area = area;
     this.r = r;
   }
+  renderComponent = new import_obsidian.Component();
   async onOpen() {
+    this.renderComponent.load();
     this.modalEl.addClass("planning-modal", "planning-area-modal");
     this.contentEl.empty();
     this.contentEl.addClass("planning-modal-inner");
@@ -410,7 +412,7 @@ var AreaModal = class extends import_obsidian.Modal {
     const renderPreview = async () => {
       previewEl.empty();
       const textToRender = currentText.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0648\u0632\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0627\u0641\u0632\u0648\u062F\u0646 \u0631\u0627\u0647\u0646\u0645\u0627 \u0648 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627\u060C \u0631\u0648\u06CC \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
-      await import_obsidian.MarkdownRenderer.render(this.app, textToRender, previewEl, "", this.p);
+      await import_obsidian.MarkdownRenderer.render(this.app, textToRender, previewEl, "", this.renderComponent);
     };
     void renderPreview();
     const footer = this.contentEl.createDiv({ cls: "planning-modal-footer" });
@@ -493,6 +495,10 @@ var AreaModal = class extends import_obsidian.Modal {
       updateViewMode(false);
     };
   }
+  onClose() {
+    this.renderComponent.unload();
+    this.contentEl.empty();
+  }
 };
 var Editor = class extends import_obsidian.Modal {
   constructor(a, p, init, onDelete) {
@@ -501,6 +507,7 @@ var Editor = class extends import_obsidian.Modal {
     this.init = init;
     this.onDelete = onDelete;
   }
+  renderComponent = new import_obsidian.Component();
   done;
   res = new Promise((r) => this.done = r);
   end = false;
@@ -512,6 +519,7 @@ var Editor = class extends import_obsidian.Modal {
     }
   }
   onOpen() {
+    this.renderComponent.load();
     this.modalEl.addClass("planning-modal", "planning-editor-modal");
     this.contentEl.empty();
     this.contentEl.addClass("planning-modal-inner");
@@ -642,7 +650,7 @@ var Editor = class extends import_obsidian.Modal {
     const renderPreview = async () => {
       previewEl.empty();
       const content = z.description?.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u0627\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0646\u0648\u0634\u062A\u0646\u060C \u0631\u0648\u06CC \u062F\u06A9\u0645\u0647 \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
-      await import_obsidian.MarkdownRenderer.render(this.app, content, previewEl, "", this.p);
+      await import_obsidian.MarkdownRenderer.render(this.app, content, previewEl, "", this.renderComponent);
     };
     const setTab = (tab) => {
       if (tab === "preview") {
@@ -718,6 +726,7 @@ var Editor = class extends import_obsidian.Modal {
     };
   }
   onClose() {
+    this.renderComponent.unload();
     this.contentEl.empty();
     if (!this.end) this.finish(null);
   }
